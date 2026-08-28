@@ -1,0 +1,24 @@
+en:
+  redmine_mcp_plugin:
+    settings:
+      section_endpoint: Endpoint
+      section_authentication: Authentication modes
+      section_behaviour: Behaviour
+      enabled: Enable the MCP endpoint
+      enabled_hint: "Serves POST %{url}. Off by default."
+      auth_oauth2: OAuth2 (recommended)
+      auth_oauth2_hint: "Per-user access tokens issued by Redmine's own OAuth2 provider. Each token is limited to the scopes granted to it, so it can be strictly weaker than the user. Register applications under Administration > Applications."
+      auth_api_key: REST API key
+      auth_api_key_hint: "The X-Redmine-API-Key header, as used by the REST API. Identifies the user but carries their full permissions - there is no way to narrow it."
+      auth_basic: HTTP Basic
+      auth_basic_hint: "Username and password, or an API key as the username. Sends reusable credentials on every request. Refused for accounts with two-factor authentication active."
+      auth_session: Browser session cookie
+      auth_session_hint: "Accepts an existing logged-in Redmine session. Only useful for clients running inside the browser, and the only mode exposed to cross-site request forgery - requests are rejected unless the Origin header matches this Redmine or an entry below."
+      read_only: Read-only mode
+      read_only_hint: "Hide and refuse every tool that creates or changes data. On by default."
+      allowed_origins: Additional allowed origins
+      allowed_origins_hint: "One per line, e.g. https://app.example.com. This Redmine's own origin is always allowed. Requests with no Origin header - which is every non-browser MCP client - are unaffected."
+      max_results: Maximum results per call
+      max_results_hint: "Upper bound on rows any single tool may return. Capped at %{max}."
+      rest_api_warning: "The REST API is disabled in Administration > Settings > API, which disables OAuth2, API key and HTTP Basic authentication for this endpoint too."
+      no_auth_warning: "No authentication mode is enabled, so the endpoint will refuse every request."

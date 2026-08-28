@@ -1,0 +1,24 @@
+pt:
+  redmine_mcp_plugin:
+    settings:
+      section_endpoint: Endpoint
+      section_authentication: Modos de autenticacao
+      section_behaviour: Comportamento
+      enabled: Activar o endpoint MCP
+      enabled_hint: "Responde a POST %{url}. Desactivado por omissao."
+      auth_oauth2: OAuth2 (recomendado)
+      auth_oauth2_hint: "Tokens por utilizador emitidos pelo fornecedor OAuth2 do proprio Redmine. Cada token esta limitado aos scopes que lhe foram concedidos, podendo ser mais restrito do que o utilizador. Registe aplicacoes em Administracao > Aplicacoes."
+      auth_api_key: Chave da API REST
+      auth_api_key_hint: "O cabecalho X-Redmine-API-Key, como na API REST. Identifica o utilizador mas carrega todas as suas permissoes - nao ha forma de as restringir."
+      auth_basic: HTTP Basic
+      auth_basic_hint: "Utilizador e palavra-passe, ou uma chave de API como utilizador. Envia credenciais reutilizaveis em cada pedido. Recusado em contas com autenticacao de dois factores activa."
+      auth_session: Cookie de sessao do browser
+      auth_session_hint: "Aceita uma sessao Redmine ja iniciada. So e util para clientes que corram dentro do browser, e e o unico modo exposto a cross-site request forgery - os pedidos sao rejeitados se o cabecalho Origin nao corresponder a este Redmine ou a uma entrada abaixo."
+      read_only: Modo apenas-leitura
+      read_only_hint: "Esconde e recusa todas as ferramentas que criem ou alterem dados. Activo por omissao."
+      allowed_origins: Origens adicionais permitidas
+      allowed_origins_hint: "Uma por linha, por exemplo https://app.example.com. A origem deste Redmine e sempre permitida. Pedidos sem cabecalho Origin - ou seja, todos os clientes MCP fora do browser - nao sao afectados."
+      max_results: Maximo de resultados por chamada
+      max_results_hint: "Limite superior de linhas devolvidas por uma ferramenta. Limitado a %{max}."
+      rest_api_warning: "A API REST esta desactivada em Administracao > Configuracao > API, o que desactiva tambem a autenticacao OAuth2, por chave de API e HTTP Basic neste endpoint."
+      no_auth_warning: "Nenhum modo de autenticacao esta activo, pelo que o endpoint vai recusar todos os pedidos."
