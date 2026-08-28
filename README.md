@@ -6,7 +6,15 @@ plugin**, so there is no second service to deploy, supervise, or keep on a compa
 It adds one endpoint — `POST /mcp` — and authenticates it with Redmine's own mechanisms. Every tool
 runs as a real Redmine user and is bounded by that user's permissions.
 
-**Status: 0.1.0, early.** Read-only by default. Tested against Redmine 7.0.0 / Rails 8.1 / Ruby 3.4.
+**Status: 0.1.0, early.** Read-only by default. Developed and verified against Redmine 7.0.0 /
+Rails 8.1.3.1 / Ruby 3.4.10.
+
+⚠ **Honest testing status.** The transport, authentication, visibility filtering and OAuth2 scope
+narrowing were all verified over HTTP against a live Redmine with production-scale data, and the
+pure-logic unit tests pass. **The 25 functional tests in `test/functional/` have never been executed** —
+they were written against an instance with no test database configured. No real MCP client has connected
+yet either; everything so far was `curl`. Treat this as working-but-unproven, and run the suite before
+relying on it.
 
 ## Why a plugin
 
