@@ -108,4 +108,38 @@ class RedmineMcpPluginSchemaValidatorTest < ActiveSupport::TestCase
     assert_nothing_raised { V.validate!(nil, { 'anything' => 1 }) }
     assert_nothing_raised { V.validate!({}, { 'anything' => 1 }) }
   end
+
+  # The string "false" is truthy in Ruby. check_type! accepts it, because
+  # clients built out of shell pipelines send booleans as strings, so coerce
+  # has to be what stops it reading as true.
+  def test_coerce_turns_string_booleans_into_booleans
+    coerced = V.coerce(SCHEMA, { 'project' => 'x', 'assigned_to_me' => 'false' })
+    assert_equal false, coerced['assigned_to_me']
+
+    coerced = V.coerce(SCHEMA, { 'project' => 'x', 'assigned_to_me' => 'true' })
+    assert_equal true, coerced['assigned_to_me']
+  end
+
+  def test_coerce_leaves_real_booleans_alone
+    coerced = V.coerce(SCHEMA, { 'project' => 'x', 'assigned_to_me' => false })
+    assert_equal false, coerced['assigned_to_me']
+  end
+
+  def test_coerce_turns_string_integers_into_integers
+    coerced = V.coerce(SCHEMA, { 'project' => 'x', 'limit' => '10' })
+    assert_equal 10, coerced['limit']
+  end
+
+  # project is declared %w[string integer], so there is no single right answer
+  # and fetch_project accepts either. Leave it exactly as it arrived.
+  def test_coerce_leaves_ambiguous_types_alone
+    schema = { 'properties' => { 'project' => { 'type' => %w[string integer] } } }
+    assert_equal '42', V.coerce(schema, { 'project' => '42' })['project']
+  end
+
+  def test_coerce_preserves_nil_and_unknown_keys
+    schema = { 'properties' => { 'limit' => { 'type' => 'integer' } } }
+    assert_nil V.coerce(schema, { 'limit' => nil })['limit']
+    assert_equal 'kept', V.coerce(schema, { 'other' => 'kept' })['other']
+  end
 end

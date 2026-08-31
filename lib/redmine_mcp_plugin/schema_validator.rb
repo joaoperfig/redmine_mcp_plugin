@@ -45,6 +45,39 @@ module RedmineMcpPlugin
       end
     end
 
+    # Returns arguments with declared scalars converted to real Ruby types.
+    #
+    # Call this after validate!. The string "false" is truthy in Ruby, so a
+    # client that sends `{"assigned_to_me": "false"}` -- which check_type!
+    # accepts, because shell-built clients send booleans as strings -- would
+    # otherwise have it read as true. That is the same failure as the original
+    # status enum bug: a plausible answer to a question nobody asked, with no
+    # error to react to.
+    #
+    # Only unambiguous declarations are converted. A property declared
+    # `%w[string integer]`, as the project arguments are, is left exactly as it
+    # came in; fetch_project already accepts either.
+    def coerce(schema, arguments)
+      return arguments if schema.blank?
+
+      properties = schema['properties'] || {}
+      arguments.each_with_object({}) do |(key, value), out|
+        spec = properties[key]
+        out[key] = spec.nil? || value.nil? ? value : coerce_value(Array(spec['type']), value)
+      end
+    end
+
+    def coerce_value(types, value)
+      return value unless types.size == 1
+
+      case types.first
+      when 'boolean' then [true, 'true'].include?(value)
+      when 'integer' then integerish?(value) ? value.to_i : value
+      when 'number'  then numeric?(value) ? to_number(value) : value
+      else value
+      end
+    end
+
     def reject_unknown_keys!(schema, properties, arguments)
       return unless schema['additionalProperties'] == false
 

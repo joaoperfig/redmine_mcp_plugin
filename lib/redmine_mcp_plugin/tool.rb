@@ -92,6 +92,9 @@ module RedmineMcpPlugin
       # The schemas are a contract with the caller, not a comment. Checked here
       # rather than in each tool so a tool cannot forget.
       SchemaValidator.validate!(klass.mcp_schema, arguments)
+      # And normalised, so a tool never has to decide what the string "false"
+      # means. It means false.
+      arguments = SchemaValidator.coerce(klass.mcp_schema, arguments)
 
       perform(arguments)
     end
@@ -122,11 +125,17 @@ module RedmineMcpPlugin
       requested = arguments['limit'].presence&.to_i
       return Settings.max_results if requested.nil?
 
-      [requested, Settings.max_results].min
+      # Clamped to 1, not just capped. SchemaValidator rejects a limit below
+      # the declared minimum, but only for a tool that declares one. A new list
+      # tool that omits it would otherwise pass a negative straight to
+      # ActiveRecord, which raises. max_results stays the administrator's
+      # ceiling.
+      [[requested, 1].max, Settings.max_results].min
     end
 
     def offset_for(arguments)
-      arguments['offset'].presence&.to_i || 0
+      # Clamped for the same reason as limit_for.
+      [arguments['offset'].presence&.to_i || 0, 0].max
     end
 
     # One envelope for every list tool, so a caller pages all of them the same

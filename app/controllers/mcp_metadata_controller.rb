@@ -108,11 +108,20 @@ class McpMetadataController < ApplicationController
     return [] unless defined?(Doorkeeper)
 
     config = doorkeeper_config
-    if config.respond_to?(:pkce_code_challenge_methods_supported)
-      return Array(config.pkce_code_challenge_methods_supported).map(&:to_s)
-    end
+    supported =
+      if config.respond_to?(:pkce_code_challenge_methods_supported)
+        Array(config.pkce_code_challenge_methods_supported).map(&:to_s)
+      elsif Doorkeeper::AccessGrant.column_names.include?('code_challenge')
+        %w[S256]
+      else
+        []
+      end
 
-    Doorkeeper::AccessGrant.column_names.include?('code_challenge') ? %w[S256] : []
+    # S256 only, even when Doorkeeper also offers plain. MCP requires clients
+    # to use S256, so advertising plain in an MCP-facing document offers a
+    # weaker method that no conformant client may pick. If S256 is absent an
+    # empty list is the honest answer: no automated MCP flow can work here.
+    supported & %w[S256]
   rescue StandardError => e
     Rails.logger.warn("[redmine_mcp_plugin] could not determine PKCE support: #{e.class}: #{e.message}")
     []
