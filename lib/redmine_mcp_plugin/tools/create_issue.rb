@@ -11,7 +11,8 @@ module RedmineMcpPlugin
            schema: {
              'type' => 'object',
              'properties' => {
-               'project' => { 'type' => 'string', 'description' => 'Project identifier or numeric id.' },
+               'project' => { 'type' => %w[string integer],
+                             'description' => 'Project identifier or numeric id.' },
                'subject' => { 'type' => 'string', 'description' => 'Issue subject.' },
                'description' => { 'type' => 'string' },
                'tracker' => { 'type' => 'string', 'description' => 'Tracker name. Defaults to the project default.' },

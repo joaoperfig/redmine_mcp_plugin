@@ -11,7 +11,8 @@ module RedmineMcpPlugin
            schema: {
              'type' => 'object',
              'properties' => {
-               'project' => { 'type' => 'string', 'description' => 'Restrict to one project (identifier or numeric id).' },
+               'project' => { 'type' => %w[string integer],
+                             'description' => 'Restrict to one project (identifier or numeric id).' },
                'query' => { 'type' => 'string', 'description' => 'Case-insensitive substring matched against subject and description.' },
                'status' => { 'type' => 'string', 'enum' => %w[open closed all],
                              'description' => 'Issue status filter. Defaults to open.' },
@@ -19,6 +20,8 @@ module RedmineMcpPlugin
                'assigned_to_me' => { 'type' => 'boolean', 'description' => 'Only issues assigned to the authenticated user.' },
                'updated_since' => { 'type' => 'string', 'format' => 'date',
                                     'description' => 'Only issues updated on or after this ISO-8601 date.' },
+               'offset' => { 'type' => 'integer', 'minimum' => 0,
+                             'description' => 'Rows to skip, for paging past the server cap. Defaults to 0.' },
                'limit' => { 'type' => 'integer', 'minimum' => 1, 'description' => 'Maximum issues to return.' }
              },
              'additionalProperties' => false
@@ -41,6 +44,8 @@ module RedmineMcpPlugin
           case arguments['status'].presence&.to_s
           when 'closed' then scope.joins(:status).where(issue_statuses: { is_closed: true })
           when 'all'    then scope
+          # 'open', or absent. SchemaValidator has already refused anything
+          # outside the declared enum, so this no longer swallows a typo.
           else scope.open
           end
 
@@ -66,13 +71,11 @@ module RedmineMcpPlugin
           end
         end
 
-        limit = limit_for(arguments)
-        total = scope.count
-        {
-          total_count: total,
-          returned: [total, limit].min,
-          issues: scope.reorder(updated_on: :desc).limit(limit).map { |issue| summarise(issue) }
-        }
+        limit  = limit_for(arguments)
+        offset = offset_for(arguments)
+        rows   = scope.reorder(updated_on: :desc).offset(offset).limit(limit)
+                      .map { |issue| summarise(issue) }
+        paged(total: scope.count, offset: offset, key: :issues, rows: rows)
       end
 
       def summarise(issue)

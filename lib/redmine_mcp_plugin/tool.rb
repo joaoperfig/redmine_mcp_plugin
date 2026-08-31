@@ -19,18 +19,20 @@ module RedmineMcpPlugin
   class Tool
     class << self
       attr_reader :mcp_name, :mcp_title, :mcp_description, :mcp_schema,
-                  :mcp_permission, :mcp_write
+                  :mcp_permission, :mcp_write, :mcp_destructive
 
-      def tool(name, title:, description:, schema:, permission: nil, write: false)
+      def tool(name, title:, description:, schema:, permission: nil, write: false, destructive: false)
         @mcp_name        = name.to_s
         @mcp_title       = title
         @mcp_description = description
         @mcp_schema      = schema
         @mcp_permission  = permission
         @mcp_write       = write
+        @mcp_destructive = destructive
       end
 
-      def write? = !!@mcp_write
+      def write?       = !!@mcp_write
+      def destructive? = !!@mcp_destructive
 
       # Whether this tool should appear in tools/list for the current user.
       # tools/list is allowed to vary by the authorization presented on the
@@ -49,7 +51,15 @@ module RedmineMcpPlugin
           name: mcp_name,
           title: mcp_title,
           description: mcp_description,
-          inputSchema: mcp_schema
+          inputSchema: mcp_schema,
+          # Clients read these to decide whether a call needs confirming by the
+          # user. Omitting them makes a read-only server look exactly like a
+          # destructive one, so every lookup gets a prompt.
+          annotations: {
+            readOnlyHint: !write?,
+            destructiveHint: destructive?,
+            idempotentHint: !write?
+          }
         }
       end
     end
@@ -78,7 +88,12 @@ module RedmineMcpPlugin
         raise PermissionError, 'You do not have permission to use this tool'
       end
 
-      perform(arguments || {})
+      arguments ||= {}
+      # The schemas are a contract with the caller, not a comment. Checked here
+      # rather than in each tool so a tool cannot forget.
+      SchemaValidator.validate!(klass.mcp_schema, arguments)
+
+      perform(arguments)
     end
 
     private
@@ -92,15 +107,40 @@ module RedmineMcpPlugin
     # Confirms the user may do `permission` in `project`, honouring OAuth
     # scopes. Use this for anything scoped to one project; the .visible scopes
     # alone will not catch a scope-narrowed token.
+    # ToolError, not PermissionError: this one is scoped to a single project, so
+    # the caller can act on it by asking about a different project. Tool-level
+    # refusals in #call stay protocol errors. The wording is unchanged and stays
+    # uniform -- a message that varies by cause is an information leak.
     def authorize!(permission, project)
-      raise PermissionError, 'You do not have permission to do that' unless user.allowed_to?(permission, project)
+      raise ToolError, 'You do not have permission to do that' unless user.allowed_to?(permission, project)
     end
 
+    # SchemaValidator has already refused a non-integer or below-minimum limit,
+    # so all that is left is the server-side cap. max_results is the
+    # administrator's ceiling, not a suggestion the caller may raise.
     def limit_for(arguments)
       requested = arguments['limit'].presence&.to_i
-      return Settings.max_results if requested.nil? || requested <= 0
+      return Settings.max_results if requested.nil?
 
       [requested, Settings.max_results].min
+    end
+
+    def offset_for(arguments)
+      arguments['offset'].presence&.to_i || 0
+    end
+
+    # One envelope for every list tool, so a caller pages all of them the same
+    # way. Without an offset the cap on limit made everything past the first
+    # max_results rows unreachable: on the instance this was tested against,
+    # 585 of 685 projects and all but 100 issues.
+    def paged(total:, offset:, key:, rows:)
+      {
+        total_count: total,
+        returned: rows.size,
+        offset: offset,
+        has_more: offset + rows.size < total,
+        key => rows
+      }
     end
 
     def fetch_project(identifier)
@@ -114,6 +154,27 @@ module RedmineMcpPlugin
       raise ToolError, "No visible project matching #{identifier.inspect}" if project.nil?
 
       project
+    end
+
+    # Both wiki tools need these three checks, in this order.
+    #
+    # The module check comes first because allowed_to? returns false for a
+    # disabled module, so a project whose wiki is merely switched off otherwise
+    # reports "You do not have permission" -- which sent one reviewer looking
+    # for a permissions bug that was not there. Naming the real cause leaks
+    # nothing: get_project already returns enabled_modules to anyone who can
+    # see the project.
+    def fetch_wiki(project)
+      unless project.module_enabled?(:wiki)
+        raise ToolError, "The wiki module is not enabled for project #{project.identifier}"
+      end
+
+      authorize!(:view_wiki_pages, project)
+
+      wiki = project.wiki
+      raise ToolError, "Project #{project.identifier} has no wiki" if wiki.nil? || !wiki.visible?(user)
+
+      wiki
     end
 
     def iso(time)

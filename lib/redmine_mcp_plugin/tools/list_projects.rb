@@ -12,6 +12,8 @@ module RedmineMcpPlugin
              'properties' => {
                'name' => { 'type' => 'string',
                            'description' => 'Optional case-insensitive substring to filter project name or identifier by.' },
+               'offset' => { 'type' => 'integer', 'minimum' => 0,
+                             'description' => 'Rows to skip, for paging past the server cap. Defaults to 0.' },
                'limit' => { 'type' => 'integer', 'description' => 'Maximum projects to return.', 'minimum' => 1 }
              },
              'additionalProperties' => false
@@ -26,13 +28,10 @@ module RedmineMcpPlugin
           scope = scope.where('LOWER(projects.name) LIKE LOWER(:p) OR LOWER(projects.identifier) LIKE LOWER(:p)', p: pattern)
         end
 
-        limit = limit_for(arguments)
-        total = scope.count
-        {
-          total_count: total,
-          returned: [total, limit].min,
-          projects: scope.limit(limit).map { |project| summarise(project) }
-        }
+        limit  = limit_for(arguments)
+        offset = offset_for(arguments)
+        paged(total: scope.count, offset: offset, key: :projects,
+              rows: scope.offset(offset).limit(limit).map { |project| summarise(project) })
       end
 
       def summarise(project)

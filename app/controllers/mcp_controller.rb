@@ -50,6 +50,17 @@ class McpController < ApplicationController
       )
     end
 
+    # `jsonrpc` is a required member and MUST be exactly "2.0". This was not
+    # checked, so a request that omitted it was answered normally and the client
+    # never found out its envelope was malformed.
+    unless message['jsonrpc'] == '2.0'
+      return render_rpc(
+        RedmineMcpPlugin::JsonRpc.error(message['id'], RedmineMcpPlugin::JsonRpc::INVALID_REQUEST,
+                                        'Invalid Request: jsonrpc must be "2.0"'),
+        :bad_request
+      )
+    end
+
     # A notification or a response gets 202 Accepted with no body, per the
     # transport spec. notifications/initialized from an older client lands here.
     if RedmineMcpPlugin::JsonRpc.notification?(message)
@@ -107,7 +118,14 @@ class McpController < ApplicationController
       # WWW-Authenticate lets a spec-compliant MCP client discover that it
       # should start an OAuth2 flow rather than simply reporting a failure.
       if RedmineMcpPlugin::Settings.oauth2_auth? && result.status == :unauthorized
-        response.set_header('WWW-Authenticate', %(Bearer realm="Redmine"))
+        # resource_metadata is the part a client actually needs (RFC 9728 5.1).
+        # With realm alone there is nothing to discover: the client knows it
+        # should present a bearer token but not which authorization server
+        # issues one, which is where every automated OAuth2 flow stopped.
+        response.set_header(
+          'WWW-Authenticate',
+          %(Bearer realm="Redmine", resource_metadata="#{oauth_protected_resource_url}")
+        )
       end
       return render json: { error: result.error }, status: result.status
     end
@@ -127,6 +145,11 @@ class McpController < ApplicationController
       "Unsupported MCP protocol version: #{header}",
       { supported: RedmineMcpPlugin::SUPPORTED_PROTOCOL_VERSIONS }
     ), status: :bad_request
+  end
+
+  def oauth_protected_resource_url
+    base = request.base_url + (Redmine::Utils.relative_url_root.presence || '')
+    "#{base}/.well-known/oauth-protected-resource/mcp"
   end
 
   def render_rpc(payload, status)

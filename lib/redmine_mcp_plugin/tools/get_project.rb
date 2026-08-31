@@ -10,7 +10,8 @@ module RedmineMcpPlugin
            schema: {
              'type' => 'object',
              'properties' => {
-               'project' => { 'type' => 'string', 'description' => 'Project identifier or numeric id.' }
+               'project' => { 'type' => %w[string integer],
+                             'description' => 'Project identifier or numeric id.' }
              },
              'required' => %w[project],
              'additionalProperties' => false
