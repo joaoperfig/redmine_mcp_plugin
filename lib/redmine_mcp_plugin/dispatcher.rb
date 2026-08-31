@@ -35,7 +35,13 @@ module RedmineMcpPlugin
     rescue PermissionError => e
       # A permission failure is a protocol-level refusal, not something the
       # model can fix by retrying with different arguments.
-      JsonRpc.error(message['id'], JsonRpc::INVALID_REQUEST, e.message)
+      #
+      # INVALID_PARAMS, not INVALID_REQUEST: -32600 means the JSON is not a
+      # valid Request object, which is untrue here and misleads a client into
+      # thinking it framed the call wrongly. -32602 is also what the spec
+      # mandates for the neighbouring case, an unknown tool name in tools/call,
+      # and that case reaches this branch too -- see #tools_call.
+      JsonRpc.error(message['id'], JsonRpc::INVALID_PARAMS, e.message)
     rescue ToolError => e
       # Actionable: surfaced as a tool execution error so the model can correct
       # itself, per the specification's two-tier error model.
@@ -91,7 +97,8 @@ module RedmineMcpPlugin
       # Registry.find already filters by permission, so an unavailable tool and
       # an unknown tool are indistinguishable here -- deliberately. Saying
       # "exists but forbidden" tells a caller what the server can do for someone
-      # else.
+      # else. Both therefore leave as PermissionError and become -32602, which
+      # is the code the spec asks for on an unknown tool.
       raise PermissionError, "Unknown tool: #{name}" if tool_class.nil?
 
       arguments = params['arguments']

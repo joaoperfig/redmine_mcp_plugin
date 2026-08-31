@@ -11,6 +11,8 @@ module RedmineMcpPlugin
              'type' => 'object',
              'properties' => {
                'name' => { 'type' => 'string', 'description' => 'Case-insensitive substring of login, first or last name.' },
+               'offset' => { 'type' => 'integer', 'minimum' => 0,
+                             'description' => 'Rows to skip, for paging past the server cap. Defaults to 0.' },
                'limit' => { 'type' => 'integer', 'minimum' => 1 }
              },
              'additionalProperties' => false
@@ -35,15 +37,12 @@ module RedmineMcpPlugin
           )
         end
 
-        limit = limit_for(arguments)
-        total = scope.count
-        {
-          total_count: total,
-          returned: [total, limit].min,
-          users: scope.order(:lastname, :firstname).limit(limit).map do |principal|
-            { id: principal.id, login: principal.login, name: principal.name }
-          end
-        }
+        limit  = limit_for(arguments)
+        offset = offset_for(arguments)
+        rows   = scope.order(:lastname, :firstname).offset(offset).limit(limit).map do |principal|
+          { id: principal.id, login: principal.login, name: principal.name }
+        end
+        paged(total: scope.count, offset: offset, key: :users, rows: rows)
       end
     end
   end

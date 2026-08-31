@@ -10,7 +10,8 @@ module RedmineMcpPlugin
            schema: {
              'type' => 'object',
              'properties' => {
-               'project' => { 'type' => 'string', 'description' => 'Project identifier or numeric id.' },
+               'project' => { 'type' => %w[string integer],
+                             'description' => 'Project identifier or numeric id.' },
                'title' => { 'type' => 'string', 'description' => 'Wiki page title.' }
              },
              'required' => %w[project title],
@@ -21,10 +22,7 @@ module RedmineMcpPlugin
 
       def perform(arguments)
         project = fetch_project(arguments['project'])
-        authorize!(:view_wiki_pages, project)
-
-        wiki = project.wiki
-        raise ToolError, "Project #{project.identifier} has no wiki" if wiki.nil? || !wiki.visible?(user)
+        wiki    = fetch_wiki(project)
 
         page = wiki.find_page(arguments['title'].to_s)
         raise ToolError, "No wiki page titled #{arguments['title'].inspect}" if page.nil? || !page.visible?(user)
