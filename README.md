@@ -107,8 +107,6 @@ The list tools take `limit` and `offset` and return `total_count`, `returned`, `
 
 ## Protocol
 
-Three revisions, negotiated per request.
-
 2026-07-28 is stateless: no `initialize` handshake and no `Mcp-Session-Id`. `server/discover` is
 implemented, as that revision requires. Results carry `resultType` and server identity in `_meta`, and
 list results carry `ttlMs` and `cacheScope: private` because the tool set varies per caller.
