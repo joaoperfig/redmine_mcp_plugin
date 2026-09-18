@@ -21,6 +21,7 @@ module RedmineMcpPlugin
           Tools::ListEnumerations,
           Tools::ListUsers,
           Tools::CreateIssue,
+          Tools::UpdateIssue,
           Tools::AddIssueNote
         ]
       end
