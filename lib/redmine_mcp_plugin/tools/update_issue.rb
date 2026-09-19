@@ -17,6 +17,7 @@ module RedmineMcpPlugin
                'tracker' => { 'type' => 'string', 'description' => 'Tracker name.' },
                'priority' => { 'type' => 'string', 'description' => 'Priority name.' },
                'status' => { 'type' => 'string', 'description' => 'Target status name.' },
+               'done_ratio' => { 'type' => 'integer', 'description' => 'Completion percentage from 0 to 100.' },
                'assigned_to' => { 'type' => 'string', 'description' => 'Login of the assignee, or "none" to unassign.' },
                'notes' => { 'type' => 'string', 'description' => 'Optional comment to add with the update.' },
                'private' => { 'type' => 'boolean', 'description' => 'Mark the note private when notes are provided.' }
@@ -74,6 +75,13 @@ module RedmineMcpPlugin
           attributes['status_id'] = status.id
         end
 
+        if arguments.key?('done_ratio')
+          done_ratio = arguments['done_ratio'].to_i
+          raise ToolError, 'done_ratio must be between 0 and 100' unless (0..100).cover?(done_ratio)
+
+          attributes['done_ratio'] = done_ratio
+        end
+
         if arguments.key?('assigned_to')
           assigned_value = arguments['assigned_to'].to_s.strip
           if assigned_value.empty? || assigned_value.casecmp('none').zero?
@@ -109,6 +117,7 @@ module RedmineMcpPlugin
           tracker: issue.tracker&.name,
           priority: issue.priority&.name,
           assigned_to_id: issue.assigned_to_id,
+          done_ratio: issue.done_ratio,
           updated_on: iso(issue.updated_on)
         }
       end

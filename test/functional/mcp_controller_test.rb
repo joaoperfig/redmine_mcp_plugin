@@ -181,6 +181,7 @@ class McpControllerTest < Redmine::ControllerTest
                                    'id' => issue.id,
                                    'subject' => 'Updated issue title',
                                    'status' => 'Closed',
+                                   'done_ratio' => 100,
                                    'priority' => 'Urgent',
                                    'assigned_to' => assignee.login
                                  } }),
@@ -189,6 +190,7 @@ class McpControllerTest < Redmine::ControllerTest
     assert_response :success
     assert_equal 'Updated issue title', json_body['result']['structuredContent']['subject']
     assert_equal 'Closed', json_body['result']['structuredContent']['status']
+    assert_equal 100, json_body['result']['structuredContent']['done_ratio']
     assert_equal assignee.login, User.find(json_body['result']['structuredContent']['assigned_to_id']).login
   end
 
