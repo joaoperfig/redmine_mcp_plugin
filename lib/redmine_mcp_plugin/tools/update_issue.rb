@@ -68,10 +68,6 @@ module RedmineMcpPlugin
           status = IssueStatus.find_by(name: status_name)
           raise ToolError, "Project #{issue.project.identifier} has no status named #{status_name.inspect}" if status.nil?
 
-          unless issue.new_statuses_allowed_to(user).map(&:id).include?(status.id)
-            raise ToolError, "Status #{status_name.inspect} is not allowed for issue #{issue.id}"
-          end
-
           attributes['status_id'] = status.id
         end
 
