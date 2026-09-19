@@ -173,6 +173,27 @@ class McpControllerTest < Redmine::ControllerTest
     assert_includes json_body['result']['tools'].map { |t| t['name'] }, 'create_issue'
   end
 
+  def test_update_issue_changes_fields
+    issue = Issue.find(1)
+    assignee = issue.project.assignable_users.first
+    post_mcp rpc('tools/call', { 'name' => 'update_issue',
+                                 'arguments' => {
+                                   'id' => issue.id,
+                                   'subject' => 'Updated issue title',
+                                   'status' => 'Closed',
+                                   'done_ratio' => 100,
+                                   'priority' => 'Urgent',
+                                   'assigned_to' => assignee.login
+                                 } }),
+             api_key_headers(User.find(1))
+
+    assert_response :success
+    assert_equal 'Updated issue title', json_body['result']['structuredContent']['subject']
+    assert_equal 'Closed', json_body['result']['structuredContent']['status']
+    assert_equal 100, json_body['result']['structuredContent']['done_ratio']
+    assert_equal assignee.login, User.find(json_body['result']['structuredContent']['assigned_to_id']).login
+  end
+
   # --- visibility ---------------------------------------------------------
 
   def test_whoami_reports_the_authenticated_user
