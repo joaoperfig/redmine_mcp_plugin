@@ -18,6 +18,12 @@ class McpController < ApplicationController
   # X-Redmine-API-Key or Bearer header would never be looked at.
   skip_before_action :check_if_login_required, raise: false
 
+  # Ahead of core's user_setup. Core reads params in several places before any
+  # filter here runs, and for a JSON content type that parses the body, so
+  # malformed JSON raised before #handle could answer it and the client got
+  # Rails' generic 400 page instead of a JSON-RPC parse error.
+  prepend_before_action :reject_unparseable_body
+
   before_action :require_endpoint_enabled
   before_action :verify_origin
   before_action :authenticate_mcp_request
@@ -87,7 +93,23 @@ class McpController < ApplicationController
     head :method_not_allowed
   end
 
+  # render calls core's _include_layout?, which calls api_request?, which reads
+  # params[:format] and so parses the body again. Without this the parse error
+  # below could not be rendered. Public, as in core: SudoMode calls it with an
+  # explicit receiver.
+  def api_request?
+    super
+  rescue ActionDispatch::Http::Parameters::ParseError
+    false
+  end
+
   private
+
+  def reject_unparseable_body
+    request.request_parameters
+  rescue ActionDispatch::Http::Parameters::ParseError
+    render_rpc(RedmineMcpPlugin::JsonRpc.error(nil, RedmineMcpPlugin::JsonRpc::PARSE_ERROR, 'Parse error'), :bad_request)
+  end
 
   def require_endpoint_enabled
     return if RedmineMcpPlugin::Settings.enabled?

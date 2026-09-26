@@ -3,6 +3,8 @@
 module RedmineMcpPlugin
   module Tools
     class CreateIssue < Tool
+      include IssueAttributes
+
       tool 'create_issue',
            title: 'Create issue',
            description: 'Create a new issue in a project.',
@@ -17,7 +19,14 @@ module RedmineMcpPlugin
                'description' => { 'type' => 'string' },
                'tracker' => { 'type' => 'string', 'description' => 'Tracker name. Defaults to the project default.' },
                'priority' => { 'type' => 'string', 'description' => 'Priority name. Defaults to the Redmine default.' },
-               'assigned_to' => { 'type' => 'string', 'description' => 'Login of the user to assign to.' }
+               'status' => { 'type' => 'string',
+                             'description' => 'Status name. Defaults to the tracker default. ' \
+                                              'Must be allowed by the workflow for new issues.' },
+               'assigned_to' => { 'type' => 'string', 'description' => 'Login of the user to assign to.' },
+               'category' => { 'type' => 'string', 'description' => 'Issue category name in the project.' },
+               'fixed_version' => { 'type' => 'string', 'description' => 'Target version name. Must be open.' },
+               'parent_issue_id' => { 'type' => 'integer',
+                                      'description' => 'Parent issue id. Requires the manage_subtasks permission.' }
              },
              'required' => %w[project subject],
              'additionalProperties' => false
@@ -54,11 +63,29 @@ module RedmineMcpPlugin
           attributes['assigned_to_id'] = assignee.id
         end
 
+        if (status_name = arguments['status'].presence)
+          attributes['status_id'] = status_id_for(issue, status_name)
+        end
+
+        if (category_name = arguments['category'].presence)
+          attributes['category_id'] = category_id_for(issue, category_name)
+        end
+
+        if (version_name = arguments['fixed_version'].presence)
+          attributes['fixed_version_id'] = fixed_version_id_for(issue, version_name)
+        end
+
+        if (parent_id = arguments['parent_issue_id'].presence)
+          attributes['parent_issue_id'] = parent_issue_id_for(issue, parent_id)
+        end
+
         issue.safe_attributes = attributes
+        ensure_applied!(issue, attributes)
         raise ToolError, "Could not create issue: #{issue.errors.full_messages.join('; ')}" unless issue.save
 
         { id: issue.id, subject: issue.subject, project_identifier: project.identifier,
-          status: issue.status&.name, tracker: issue.tracker&.name, created_on: iso(issue.created_on) }
+          status: issue.status&.name, tracker: issue.tracker&.name, category: issue.category&.name,
+          fixed_version: issue.fixed_version&.name, parent_id: issue.parent_id, created_on: iso(issue.created_on) }
       end
     end
   end

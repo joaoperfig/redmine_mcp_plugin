@@ -94,7 +94,13 @@ while read-only mode is on, which is the default.
 | `list_enumerations` | none. Trackers, statuses, priorities |
 | `list_users` | none. Filtered by `Principal.visible` |
 | `create_issue` (write) | `add_issues` |
+| `update_issue` (write) | `edit_issues` |
 | `add_issue_note` (write) | `add_issue_notes`, plus `set_notes_private` for private notes |
+| `add_issue_relation` (write) | `manage_issue_relations` on the first issue's project |
+
+`create_issue` and `update_issue` also take `status`, `category`, `fixed_version` and `parent_issue_id`;
+the parent needs `manage_subtasks`. If the workflow or the user's permissions will not let one of those four be
+set, the call is refused rather than the field silently dropped. `get_issue` returns relations to issues the user can see.
 
 `get_issue` respects per-field custom field visibility and private notes. `list_users` uses
 `Principal.visible` rather than `User.all`, which honours each role's `users_visibility` setting.

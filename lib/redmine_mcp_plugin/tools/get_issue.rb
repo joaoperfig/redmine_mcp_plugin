@@ -47,7 +47,8 @@ module RedmineMcpPlugin
           is_private: issue.is_private?,
           created_on: iso(issue.created_on),
           updated_on: iso(issue.updated_on),
-          custom_fields: visible_custom_fields(issue)
+          custom_fields: visible_custom_fields(issue),
+          relations: visible_relations(issue)
         }
 
         include_journals = arguments.fetch('include_journals', true)
@@ -60,6 +61,19 @@ module RedmineMcpPlugin
       def visible_custom_fields(issue)
         issue.visible_custom_field_values.map do |value|
           { id: value.custom_field_id, name: value.custom_field.name, value: value.value }
+        end
+      end
+
+      # A relation names the other issue, so one pointing at an issue the user
+      # cannot see would confirm that issue exists. Core's issue API filters the
+      # same way. relation_type_for reads the type from this issue's side.
+      def visible_relations(issue)
+        issue.relations.filter_map do |relation|
+          other = relation.other_issue(issue)
+          next unless other&.visible?(user)
+
+          { id: relation.id, relation_type: relation.relation_type_for(issue), issue_id: other.id,
+            subject: other.subject, delay: relation.delay }
         end
       end
 
