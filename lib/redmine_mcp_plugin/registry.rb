@@ -20,8 +20,12 @@ module RedmineMcpPlugin
           Tools::GetWikiPage,
           Tools::ListEnumerations,
           Tools::ListUsers,
+          Tools::ListTimeEntries,
           Tools::CreateIssue,
-          Tools::AddIssueNote
+          Tools::AddIssueNote,
+          Tools::CreateTimeEntry,
+          Tools::UpdateTimeEntry,
+          Tools::DeleteTimeEntry
         ]
       end
 

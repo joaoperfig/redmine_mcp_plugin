@@ -5,7 +5,7 @@ require File.expand_path('../test_helper', __dir__)
 class McpControllerTest < Redmine::ControllerTest
   tests McpController
   fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles,
-           :issues, :issue_statuses, :trackers, :enumerations, :enabled_modules
+           :issues, :issue_statuses, :trackers, :enumerations, :enabled_modules, :time_entries
 
   def setup
     Setting.rest_api_enabled = '1'
@@ -30,8 +30,11 @@ class McpControllerTest < Redmine::ControllerTest
     body.to_json
   end
 
+  # ActionController::TestCase#post takes no headers: keyword (that is the
+  # integration-test API); request headers go on @request instead.
   def post_mcp(payload, headers = {})
-    post :handle, body: payload, as: :json, headers: headers
+    headers.each { |name, value| @request.headers[name] = value }
+    post :handle, body: payload, as: :json
   end
 
   def json_body
@@ -171,6 +174,74 @@ class McpControllerTest < Redmine::ControllerTest
     enable_mcp('read_only' => '0')
     post_mcp rpc('tools/list'), api_key_headers(User.find(1))
     assert_includes json_body['result']['tools'].map { |t| t['name'] }, 'create_issue'
+  end
+
+  # --- time entries -------------------------------------------------------
+
+  def test_create_time_entry_logs_time_as_the_caller
+    enable_mcp('read_only' => '0')
+    user = User.find(2)
+    assert_difference 'TimeEntry.count', 1 do
+      post_mcp rpc('tools/call', { 'name' => 'create_time_entry',
+                                   'arguments' => { 'issue_id' => 1, 'hours' => 1.5,
+                                                    'spent_on' => '2026-09-24', 'comments' => 'Review' } }),
+               api_key_headers(user)
+    end
+
+    payload = json_body['result']['structuredContent']
+    assert_equal 1, payload['issue_id']
+    assert_equal '2026-09-24', payload['spent_on']
+    assert_equal user.id, TimeEntry.find(payload['id']).user_id
+  end
+
+  def test_create_time_entry_needs_an_issue_or_a_project
+    enable_mcp('read_only' => '0')
+    post_mcp rpc('tools/call', { 'name' => 'create_time_entry', 'arguments' => { 'hours' => 1 } }),
+             api_key_headers(User.find(2))
+    assert json_body['result']['isError']
+  end
+
+  # In project 1 jsmith is a Manager: edit_time_entries without
+  # edit_own_time_entries. Core counts that as enough for an own entry.
+  def test_update_time_entry_changes_own_entry
+    enable_mcp('read_only' => '0')
+    user = User.find(2)
+    time_entry = TimeEntry.where(user_id: user.id).first
+    post_mcp rpc('tools/call', { 'name' => 'update_time_entry',
+                                 'arguments' => { 'id' => time_entry.id, 'hours' => 2.5, 'comments' => 'Edited' } }),
+             api_key_headers(user)
+
+    assert_equal 2.5, json_body['result']['structuredContent']['hours']
+    assert_equal 'Edited', time_entry.reload.comments
+  end
+
+  # Somebody else's entry gets the same refusal as a missing one.
+  def test_update_time_entry_refuses_another_users_entry
+    enable_mcp('read_only' => '0')
+    user = User.find(2)
+    time_entry = TimeEntry.where.not(user_id: user.id).first
+    post_mcp rpc('tools/call', { 'name' => 'update_time_entry', 'arguments' => { 'id' => time_entry.id, 'hours' => 1 } }),
+             api_key_headers(user)
+
+    assert json_body['result']['isError']
+    assert_match(/No time entry of yours/, json_body['result']['content'].first['text'])
+  end
+
+  def test_delete_time_entry_removes_own_entry
+    enable_mcp('read_only' => '0')
+    user = User.find(2)
+    time_entry = TimeEntry.where(user_id: user.id).first
+    assert_difference 'TimeEntry.count', -1 do
+      post_mcp rpc('tools/call', { 'name' => 'delete_time_entry', 'arguments' => { 'id' => time_entry.id } }),
+               api_key_headers(user)
+    end
+    assert json_body['result']['structuredContent']['deleted']
+  end
+
+  def test_list_time_entries_only_returns_visible_rows
+    user = User.find(2)
+    post_mcp rpc('tools/call', { 'name' => 'list_time_entries' }), api_key_headers(user)
+    assert_equal TimeEntry.visible(user).count, json_body['result']['structuredContent']['total_count']
   end
 
   # --- visibility ---------------------------------------------------------

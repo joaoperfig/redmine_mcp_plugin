@@ -91,10 +91,13 @@ while read-only mode is on, which is the default.
 | `list_projects`, `get_project` | `view_project` |
 | `search_issues`, `get_issue` | `view_issues` |
 | `list_wiki_pages`, `get_wiki_page` | `view_wiki_pages` |
-| `list_enumerations` | none. Trackers, statuses, priorities |
+| `list_enumerations` | none. Trackers, statuses, priorities, shared time entry activities |
 | `list_users` | none. Filtered by `Principal.visible` |
+| `list_time_entries` | `view_time_entries`. Also returns `total_hours` for the filtered set |
 | `create_issue` (write) | `add_issues` |
 | `add_issue_note` (write) | `add_issue_notes`, plus `set_notes_private` for private notes |
+| `create_time_entry` (write) | `log_time`. Always logs as the caller, never for another user |
+| `update_time_entry`, `delete_time_entry` (write) | `edit_own_time_entries` or `edit_time_entries`, as core decides. Only the caller's own entries; delete is marked destructive |
 
 `get_issue` respects per-field custom field visibility and private notes. `list_users` uses
 `Principal.visible` rather than `User.all`, which honours each role's `users_visibility` setting.
