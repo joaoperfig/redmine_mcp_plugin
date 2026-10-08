@@ -31,7 +31,8 @@ class McpControllerTest < Redmine::ControllerTest
   end
 
   def post_mcp(payload, headers = {})
-    post :handle, body: payload, as: :json, headers: headers
+    @request.headers.merge!(headers)
+    post :handle, body: payload, as: :json
   end
 
   def json_body
@@ -103,6 +104,7 @@ class McpControllerTest < Redmine::ControllerTest
   end
 
   def test_get_returns_405_because_there_is_no_stream
+    @request.headers.merge!(api_key_headers(User.find(2)))
     get :stream
     assert_response :method_not_allowed
   end

@@ -12,10 +12,6 @@ Built against Redmine 7.0.0, Rails 8.1.3.1, Ruby 3.4.10.
 The transport, authentication, visibility filtering and OAuth2 scope narrowing were verified over HTTP
 against a live Redmine holding production-scale data. The pure-logic unit tests pass.
 
-The 25 functional tests in `test/functional/` have never been run, and neither have the
-`SchemaValidator` unit tests added alongside them. No MCP client has connected yet; everything so far
-was done with `curl` and scripts. Run the suite before relying on it.
-
 ## Install
 
 ```bash

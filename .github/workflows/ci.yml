@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Redmine ${{ matrix.redmine }} / Ruby ${{ matrix.ruby }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Test the lower end of the supported Redmine/Ruby range.
+          - redmine: 6.1-stable
+            ruby: "3.2"
+          # Test the newest supported Redmine release and Ruby generation.
+          - redmine: 7.0-stable
+            ruby: "4.0"
+
+    env:
+      RAILS_ENV: test
+
+    steps:
+      - name: Check out Redmine
+        uses: actions/checkout@v6
+        with:
+          repository: redmine/redmine
+          ref: ${{ matrix.redmine }}
+
+      - name: Check out plugin
+        uses: actions/checkout@v6
+        with:
+          path: plugins/redmine_mcp_plugin
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+
+      - name: Configure SQLite test database
+        run: |
+          cat > config/database.yml <<'YAML'
+          test:
+            adapter: sqlite3
+            database: db/test.sqlite3
+          YAML
+
+      - name: Install Redmine dependencies
+        run: bundle install --jobs 4 --retry 3
+
+      - name: Prepare test database
+        run: |
+          bundle exec rake db:create db:migrate
+          bundle exec rake redmine:plugins:migrate
+
+      - name: Run plugin tests
+        run: bundle exec rake redmine:plugins:test NAME=redmine_mcp_plugin
