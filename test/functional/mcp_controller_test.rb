@@ -196,11 +196,203 @@ class McpControllerTest < Redmine::ControllerTest
 
   def test_search_issues_only_returns_visible_rows
     user = User.find(7)
-    post_mcp rpc('tools/call', { 'name' => 'search_issues', 'arguments' => { 'status' => 'all' } }),
-             api_key_headers(user)
-    returned = json_body['result']['structuredContent']['issues'].map { |i| i['id'] }
+    arguments = { 'filters' => { 'status' => { 'operator' => '*' } } }
+    post_mcp rpc('tools/call', { 'name' => 'search_issues', 'arguments' => arguments }), api_key_headers(user)
+    payload = json_body['result']['structuredContent']
+    returned = payload['issues'].map { |i| i['id'] }
     assert_equal returned.sort, Issue.visible(user).where(id: returned).pluck(:id).sort
+    assert_equal Issue.visible(user).count, payload['total_count']
     assert Issue.count > returned.size, 'fixture set should be larger than what one user can see'
+  end
+
+  def test_search_issues_defaults_to_all_statuses
+    user = User.find(2)
+    visible = Issue.visible(user)
+    closed_count = visible.joins(:status).where(issue_statuses: { is_closed: true }).count
+    assert closed_count.positive?, 'fixture set should contain at least one visible closed issue'
+
+    post_mcp rpc('tools/call', { 'name' => 'search_issues', 'arguments' => {} }), api_key_headers(user)
+
+    payload = json_body['result']['structuredContent']
+    returned_ids = payload['issues'].map { |issue| issue['id'] }
+    assert Issue.where(id: returned_ids).joins(:status).where(issue_statuses: { is_closed: true }).any?
+    assert_equal visible.count, payload['total_count']
+  end
+
+  def test_search_issues_can_filter_by_author_display_name
+    user = User.find(2)
+    issue = Issue.visible(user).where.not(author_id: nil).first
+    assert_not_nil issue, 'fixture set should contain at least one visible issue with an author'
+    author = issue.author
+    expected = Issue.visible(user).where(author_id: author.id)
+
+    arguments = {
+      'filters' => {
+        'author' => { 'operator' => '=', 'values' => [author.name.swapcase] }
+      }
+    }
+    post_mcp rpc('tools/call', { 'name' => 'search_issues', 'arguments' => arguments }), api_key_headers(user)
+
+    payload = json_body['result']['structuredContent']
+    returned_ids = payload['issues'].map { |result| result['id'] }
+    assert returned_ids.any?
+    assert_equal [author.id], Issue.where(id: returned_ids).distinct.pluck(:author_id)
+    assert_equal expected.count, payload['total_count']
+  end
+
+  def test_search_issues_can_filter_by_author_login
+    user = User.find(2)
+    issue = Issue.visible(user).where(author_id: User.where.not(login: '').select(:id)).first
+    assert_not_nil issue, 'fixture set should contain at least one visible issue with an author login'
+    author = issue.author
+    expected = Issue.visible(user).where(author_id: author.id)
+
+    arguments = {
+      'filters' => {
+        'author' => { 'operator' => '=', 'values' => [author.login.swapcase] }
+      }
+    }
+    post_mcp rpc('tools/call', { 'name' => 'search_issues', 'arguments' => arguments }), api_key_headers(user)
+
+    payload = json_body['result']['structuredContent']
+    returned_ids = payload['issues'].map { |result| result['id'] }
+    assert returned_ids.any?
+    assert_equal [author.id], Issue.where(id: returned_ids).distinct.pluck(:author_id)
+    assert_equal expected.count, payload['total_count']
+  end
+
+  def test_search_issues_can_filter_by_author_id
+    user = User.find(2)
+    author_id = Issue.visible(user).where.not(author_id: nil).pick(:author_id)
+    assert_not_nil author_id
+
+    arguments = {
+      'filters' => {
+        'author_id' => { 'operator' => '=', 'values' => [author_id.to_s] }
+      }
+    }
+    post_mcp rpc('tools/call', { 'name' => 'search_issues', 'arguments' => arguments }), api_key_headers(user)
+
+    payload = json_body['result']['structuredContent']
+    returned_ids = payload['issues'].map { |issue| issue['id'] }
+    assert returned_ids.any?
+    assert_equal [author_id], Issue.where(id: returned_ids).distinct.pluck(:author_id)
+    assert_equal Issue.visible(user).where(author_id: author_id).count, payload['total_count']
+  end
+
+  def test_search_issues_named_status_supports_open_operator_without_values
+    user = User.find(2)
+    arguments = { 'filters' => { 'status' => { 'operator' => 'o' } } }
+    post_mcp rpc('tools/call', { 'name' => 'search_issues', 'arguments' => arguments }), api_key_headers(user)
+
+    payload = json_body['result']['structuredContent']
+    returned_ids = payload['issues'].map { |issue| issue['id'] }
+    assert Issue.where(id: returned_ids).joins(:status).where(issue_statuses: { is_closed: true }).none?
+    assert_equal Issue.visible(user).open.count, payload['total_count']
+  end
+
+  def test_search_issues_rejects_named_and_native_forms_of_same_filter
+    user = User.find(2)
+    arguments = {
+      'filters' => {
+        'author' => { 'operator' => '=', 'values' => [user.name] },
+        'author_id' => { 'operator' => '=', 'values' => [user.id.to_s] }
+      }
+    }
+    post_mcp rpc('tools/call', { 'name' => 'search_issues', 'arguments' => arguments }), api_key_headers(user)
+
+    assert json_body['result']['isError']
+    assert_match(/both refer to "author_id"/, json_body['result']['content'].first['text'])
+  end
+
+  def test_search_issues_rejects_unknown_named_filter_value
+    arguments = {
+      'filters' => {
+        'tracker' => { 'operator' => '=', 'values' => ['definitely-not-a-real-tracker'] }
+      }
+    }
+    post_mcp rpc('tools/call', { 'name' => 'search_issues', 'arguments' => arguments }), api_key_headers(User.find(2))
+
+    assert json_body['result']['isError']
+    assert_match(/Unknown value/, json_body['result']['content'].first['text'])
+  end
+
+  def test_search_issues_rejects_unknown_redmine_filter
+    arguments = {
+      'filters' => {
+        'definitely_not_a_filter' => { 'operator' => '=', 'values' => ['1'] }
+      }
+    }
+    post_mcp rpc('tools/call', { 'name' => 'search_issues', 'arguments' => arguments }), api_key_headers(User.find(2))
+
+    assert json_body['result']['isError']
+    assert_match(/Unknown or unavailable issue filter/, json_body['result']['content'].first['text'])
+  end
+
+  def test_search_issues_filters_are_validated_against_json_schema
+    user = User.find(2)
+
+    cases = [
+      [
+        { 'filters' => [] },
+        /filters must be an object/
+      ],
+      [
+        {
+          'filters' => {
+            'author' => { 'values' => ['John Smith'] }
+          }
+        },
+        /Missing required argument in filters\.author: operator/
+      ],
+      [
+        {
+          'filters' => {
+            'author_id' => { 'operator' => '=', 'values' => '2' }
+          }
+        },
+        /filters\.author_id\.values must be an array/
+      ],
+      [
+        {
+          'filters' => {
+            'author_id' => {
+              'operator' => '=',
+              'values' => ['2'],
+              'unexpected' => true
+            }
+          }
+        },
+        /Unknown argument in filters\.author_id: "unexpected"/
+      ],
+      [
+        {
+          'filters' => {
+            'author_id' => {
+              'operator' => '=',
+              'values' => [{ 'id' => 2 }]
+            }
+          }
+        },
+        /filters\.author_id\.values\[0\] must be/
+      ]
+    ]
+
+    cases.each do |arguments, expected_error|
+      post_mcp(
+        rpc('tools/call', {
+              'name' => 'search_issues',
+              'arguments' => arguments
+            }),
+        api_key_headers(user)
+      )
+
+      result = json_body['result']
+
+      assert result['isError'],
+            "Expected #{arguments.inspect} to be rejected"
+      assert_match expected_error, result['content'].first['text']
+    end
   end
 
   # list_users must not enumerate the directory: core's own users list is

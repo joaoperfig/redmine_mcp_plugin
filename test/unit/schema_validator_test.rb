@@ -104,6 +104,51 @@ class RedmineMcpPluginSchemaValidatorTest < ActiveSupport::TestCase
     assert_includes error.message, 'must be a string or an integer'
   end
 
+  def test_nested_object_and_array_schema_is_enforced
+    schema = {
+      'type' => 'object',
+      'properties' => {
+        'filters' => {
+          'type' => 'object',
+          'additionalProperties' => {
+            'type' => 'object',
+            'properties' => {
+              'operator' => { 'type' => 'string' },
+              'values' => { 'type' => 'array', 'items' => { 'type' => %w[string integer] } }
+            },
+            'required' => %w[operator],
+            'additionalProperties' => false
+          }
+        }
+      },
+      'additionalProperties' => false
+    }
+
+    assert_nothing_raised do
+      V.validate!(schema, { 'filters' => { 'author_id' => { 'operator' => '=', 'values' => [2, '3'] } } })
+    end
+
+    error = assert_raises(RedmineMcpPlugin::ToolError) do
+      V.validate!(schema, { 'filters' => [] })
+    end
+    assert_includes error.message, 'filters must be an object'
+
+    error = assert_raises(RedmineMcpPlugin::ToolError) do
+      V.validate!(schema, { 'filters' => { 'author_id' => { 'values' => ['2'] } } })
+    end
+    assert_includes error.message, 'Missing required argument in filters.author_id: operator'
+
+    error = assert_raises(RedmineMcpPlugin::ToolError) do
+      V.validate!(schema, { 'filters' => { 'author_id' => { 'operator' => '=', 'extra' => true } } })
+    end
+    assert_includes error.message, 'Unknown argument in filters.author_id'
+
+    error = assert_raises(RedmineMcpPlugin::ToolError) do
+      V.validate!(schema, { 'filters' => { 'author_id' => { 'operator' => '=', 'values' => [{}] } } })
+    end
+    assert_includes error.message, 'filters.author_id.values[0] must be a string or an integer'
+  end
+
   def test_empty_schema_validates_anything
     assert_nothing_raised { V.validate!(nil, { 'anything' => 1 }) }
     assert_nothing_raised { V.validate!({}, { 'anything' => 1 }) }

@@ -16,7 +16,7 @@ module RedmineMcpPlugin
   # without teaching it to this file leaves that keyword unenforced, so keep the
   # two in step.
   module SchemaValidator
-    ENFORCED = %w[type enum minimum required additionalProperties].freeze
+    ENFORCED = %w[type enum minimum required additionalProperties items].freeze
 
     # Rails will not round-trip a NUL through a bind parameter -- PostgreSQL
     # rejects it outright, and the exception surfaced as -32603 Internal error,
@@ -30,18 +30,43 @@ module RedmineMcpPlugin
     def validate!(schema, arguments)
       return if schema.blank?
 
+      validate_value!(schema, arguments, nil)
+    end
+
+    def validate_value!(schema, value, path)
+      return if value.nil?
+
+      label = path || 'value'
+      check_control_characters!(label, value)
+      check_type!(label, schema['type'], value)
+      check_enum!(label, schema['enum'], value)
+      check_minimum!(label, schema['minimum'], value)
+
+      validate_object!(schema, value, path) if value.is_a?(Hash)
+      validate_array!(schema, value, path) if value.is_a?(Array)
+    end
+
+    def validate_object!(schema, value, path)
       properties = schema['properties'] || {}
-      reject_unknown_keys!(schema, properties, arguments)
-      require_present!(schema, arguments)
+      reject_unknown_keys!(schema, properties, value, path)
+      require_present!(schema, value, path)
 
-      arguments.each do |key, value|
+      additional = schema['additionalProperties']
+      value.each do |key, nested_value|
         spec = properties[key]
-        next if spec.nil? || value.nil?
+        spec ||= additional if additional.is_a?(Hash)
+        next if spec.nil? || nested_value.nil?
 
-        check_control_characters!(key, value)
-        check_type!(key, spec['type'], value)
-        check_enum!(key, spec['enum'], value)
-        check_minimum!(key, spec['minimum'], value)
+        validate_value!(spec, nested_value, child_path(path, key))
+      end
+    end
+
+    def validate_array!(schema, value, path)
+      item_schema = schema['items']
+      return unless item_schema.is_a?(Hash)
+
+      value.each_with_index do |item, index|
+        validate_value!(item_schema, item, "#{path || 'value'}[#{index}]")
       end
     end
 
@@ -78,24 +103,30 @@ module RedmineMcpPlugin
       end
     end
 
-    def reject_unknown_keys!(schema, properties, arguments)
+    def reject_unknown_keys!(schema, properties, arguments, path = nil)
       return unless schema['additionalProperties'] == false
 
       unexpected = arguments.keys - properties.keys
       return if unexpected.empty?
 
-      raise ToolError, "Unknown argument#{'s' if unexpected.size > 1}: " \
+      where = path ? " in #{path}" : ''
+      raise ToolError, "Unknown argument#{'s' if unexpected.size > 1}#{where}: " \
                        "#{unexpected.sort.map(&:inspect).join(', ')}. " \
                        "Accepted: #{properties.keys.sort.join(', ')}"
     end
 
-    def require_present!(schema, arguments)
+    def require_present!(schema, arguments, path = nil)
       missing = Array(schema['required']).reject do |key|
         arguments[key].present? || arguments[key] == false
       end
       return if missing.empty?
 
-      raise ToolError, "Missing required argument#{'s' if missing.size > 1}: #{missing.join(', ')}"
+      where = path ? " in #{path}" : ''
+      raise ToolError, "Missing required argument#{'s' if missing.size > 1}#{where}: #{missing.join(', ')}"
+    end
+
+    def child_path(parent, key)
+      parent ? "#{parent}.#{key}" : key.to_s
     end
 
     def check_control_characters!(key, value)
@@ -126,6 +157,8 @@ module RedmineMcpPlugin
       when 'integer' then integerish?(value)
       when 'number'  then numeric?(value)
       when 'boolean' then booleanish?(value)
+      when 'object'  then value.is_a?(Hash)
+      when 'array'   then value.is_a?(Array)
       else true
       end
     end
@@ -137,6 +170,8 @@ module RedmineMcpPlugin
         when 'integer' then 'an integer'
         when 'number'  then 'a number'
         when 'boolean' then 'true or false'
+        when 'object'  then 'an object'
+        when 'array'   then 'an array'
         else type.to_s
         end
       end.join(' or ')
