@@ -17,8 +17,10 @@ pt:
       read_only: Modo apenas-leitura
       read_only_hint: "Esconde e recusa todas as ferramentas que criem ou alterem dados. Activo por omissao."
       allowed_origins: Origens adicionais permitidas
-      allowed_origins_hint: "Uma por linha, por exemplo https://app.example.com. A origem deste Redmine e sempre permitida. Pedidos sem cabecalho Origin - ou seja, todos os clientes MCP fora do browser - nao sao afectados."
+      allowed_origins_hint: "Uma por linha, por exemplo https://app.example.com. A origem deste Redmine e sempre permitida. Pedidos sem cabecalho Origin - o caso habitual para clientes MCP fora do browser - nao sao afectados."
       max_results: Maximo de resultados por chamada
       max_results_hint: "Limite superior de linhas devolvidas por uma ferramenta. Limitado a %{max}."
+      dcr_enabled: Activar registo dinamico de clientes (RFC 7591)
+      dcr_enabled_hint: "Desactivado por omissao. Quando activo, abre um endpoint de registo sem autenticacao onde qualquer cliente pode registar uma aplicacao OAuth2."
       rest_api_warning: "A API REST esta desactivada em Administracao > Configuracao > API, o que desactiva tambem a autenticacao OAuth2, por chave de API e HTTP Basic neste endpoint."
       no_auth_warning: "Nenhum modo de autenticacao esta activo, pelo que o endpoint vai recusar todos os pedidos."

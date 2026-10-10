@@ -1,22 +1,15 @@
 # frozen_string_literal: true
 
 module RedmineMcpPlugin
-  # Typed access to Setting.plugin_redmine_mcp_plugin.
-  #
-  # Every read goes through here for one reason: until an administrator saves
-  # the settings form for the first time, Redmine hands back the DEFAULTS hash
-  # from init.rb *verbatim*, which has SYMBOL keys -- while a saved setting is a
-  # Hash with STRING keys. Reading settings['enabled'] therefore returns nil on
-  # a fresh install and false-y behaviour looks like a deliberate "off". Wrap
-  # with_indifferent_access once, here, and the rest of the plugin cannot get it
-  # wrong.
+  # Provides typed access to plugin settings. Redmine returns symbol-keyed
+  # defaults before the first save and string-keyed values afterward, so all
+  # reads pass through an indifferent-access hash.
   module Settings
     DEFAULTS = {
       # Master switch. Off by default: installing the plugin must not open an
       # endpoint on somebody's Redmine without an explicit decision.
       'enabled' => 'false',
 
-      # --- authentication modes, individually switchable -------------------
       # OAuth2 via Redmine core's Doorkeeper provider. The recommended mode:
       # per-user, per-scope, revocable from Administration -> Applications.
       'auth_oauth2' => 'true',
@@ -31,15 +24,16 @@ module RedmineMcpPlugin
       # the only one exposed to cross-site request forgery.
       'auth_session' => 'false',
 
-      # --- behaviour --------------------------------------------------------
-      # Refuse every tool that mutates data. On by default.
       'read_only' => 'true',
       # Comma/newline separated extra Origins allowed to reach the endpoint.
       # The Redmine host itself is always allowed. Requests with no Origin
-      # header at all (i.e. every non-browser MCP client) are unaffected.
+      # header (the usual case outside a browser) are unaffected.
       'allowed_origins' => '',
-      # Cap on rows any single tool call may return.
-      'max_results' => '100'
+      'max_results' => '100',
+      # Dynamic client registration (RFC 7591). Off by default: when on it opens
+      # an unauthenticated endpoint where any caller can register an OAuth2
+      # client, so turning it on must be an explicit decision.
+      'dcr_enabled' => 'false'
     }.freeze
 
     ABSOLUTE_MAX_RESULTS = 1000
@@ -47,8 +41,6 @@ module RedmineMcpPlugin
     class << self
       def all
         raw = Setting.plugin_redmine_mcp_plugin
-        # to_h covers the frozen DEFAULTS hash and an ActionController::Parameters
-        # alike; with_indifferent_access covers the symbol/string key split.
         (raw.respond_to?(:to_h) ? raw.to_h : {}).with_indifferent_access
       end
 
@@ -73,6 +65,7 @@ module RedmineMcpPlugin
       def api_key_auth? = bool('auth_api_key')
       def basic_auth?   = bool('auth_basic')
       def session_auth? = bool('auth_session')
+      def dcr_enabled?  = bool('dcr_enabled')
 
       def max_results
         n = all['max_results'].to_i
@@ -85,9 +78,7 @@ module RedmineMcpPlugin
         all['allowed_origins'].to_s.split(/[,\s]+/).map(&:strip).reject(&:blank?)
       end
 
-      # True when at least one authentication mode is switched on. An endpoint
-      # with every mode off would accept nobody; we surface that as a
-      # configuration error rather than a stream of 401s.
+      # Lets the caller distinguish a configuration error from bad credentials.
       def any_auth_mode?
         oauth2_auth? || api_key_auth? || basic_auth? || session_auth?
       end

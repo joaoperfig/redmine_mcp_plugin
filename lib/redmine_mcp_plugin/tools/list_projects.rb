@@ -2,22 +2,22 @@
 
 module RedmineMcpPlugin
   module Tools
-    class ListProjects < Tool
-      tool 'list_projects',
-           title: 'List projects',
-           description: 'List the Redmine projects visible to the authenticated user.',
-           permission: :view_project,
-           schema: {
-             'type' => 'object',
-             'properties' => {
-               'name' => { 'type' => 'string',
-                           'description' => 'Optional case-insensitive substring to filter project name or identifier by.' },
-               'offset' => { 'type' => 'integer', 'minimum' => 0,
-                             'description' => 'Rows to skip, for paging past the server cap. Defaults to 0.' },
-               'limit' => { 'type' => 'integer', 'description' => 'Maximum projects to return.', 'minimum' => 1 }
-             },
-             'additionalProperties' => false
-           }
+    class ListProjects < Base
+      tool_name 'list_projects'
+      title 'List projects'
+      description 'List the Redmine projects visible to the authenticated user.'
+      permission :view_project
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'name' => { 'type' => 'string',
+                      'description' => 'Optional case-insensitive substring to filter project name or identifier by.' },
+          'offset' => { 'type' => 'integer', 'minimum' => 0,
+                        'description' => 'Rows to skip, for paging past the server cap. Defaults to 0.' },
+          'limit' => { 'type' => 'integer', 'description' => 'Maximum projects to return.', 'minimum' => 1 }
+        },
+        'additionalProperties' => false
+      )
 
       private
 
