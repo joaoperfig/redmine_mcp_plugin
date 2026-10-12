@@ -41,6 +41,12 @@ module RedmineMcpPlugin
         raise ToolError, "Project #{project.identifier} has no wiki" if wiki.nil?
 
         page     = wiki.find_or_new_page(arguments['title'].to_s)
+        # edit_wiki_pages alone does not cover protected pages: core's
+        # WikiController#edit/#update also require WikiPage#editable_by?, which
+        # demands protect_wiki_pages once a page is protected. user carries the
+        # token's OAuth scopes here, so the check is scope-narrowed as well.
+        raise ToolError, 'You do not have permission to do that' unless page.editable_by?(user)
+
         was_new  = page.new_record?
         content  = page.content || WikiContent.new(page: page)
         content.text = arguments['text'].to_s

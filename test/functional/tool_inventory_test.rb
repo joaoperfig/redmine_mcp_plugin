@@ -203,7 +203,44 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
     end
   end
 
+  # edit_wiki_pages must not be enough to overwrite a protected page; core also
+  # requires protect_wiki_pages there (WikiPage#editable_by?).
+  def test_create_wiki_page_refuses_protected_page_without_protect_permission
+    page = protected_ecookbook_page
+    Role.find(2).add_permission!(:edit_wiki_pages)
+    Role.find(2).remove_permission!(:protect_wiki_pages)
+
+    with_read_only_off do
+      result = call_as(User.find(3), 'create_wiki_page',
+                       'project' => 'ecookbook', 'title' => page.title, 'text' => 'overwritten')[:result]
+
+      assert result[:isError]
+      assert_match(/permission/i, result[:content].first[:text])
+    end
+    assert_not_equal 'overwritten', page.content.reload.text
+  end
+
+  def test_create_wiki_page_updates_protected_page_with_protect_permission
+    page = protected_ecookbook_page
+    Role.find(2).add_permission!(:edit_wiki_pages, :protect_wiki_pages)
+
+    with_read_only_off do
+      result = call_as(User.find(3), 'create_wiki_page',
+                       'project' => 'ecookbook', 'title' => page.title, 'text' => 'overwritten')[:result]
+
+      assert_not result[:isError], result[:content]&.first&.dig(:text)
+      assert_not result[:structuredContent][:created]
+    end
+    assert_equal 'overwritten', page.content.reload.text
+  end
+
   private
+
+  def protected_ecookbook_page
+    page = Project.find_by(identifier: 'ecookbook').wiki.pages.first
+    page.update_column(:protected, true)
+    page
+  end
 
   def build_server(user)
     RedmineMcpPlugin::McpServer.build(
