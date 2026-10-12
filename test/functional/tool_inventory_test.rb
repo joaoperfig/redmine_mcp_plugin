@@ -90,6 +90,22 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
     assert_match(/No group matching/, result[:content].first[:text])
   end
 
+  # With users_visibility narrowed, a group outside every visible project is
+  # invisible to dlopper (3), by name and by id, with not-found wording. The
+  # admin still resolves it, so the refusal is visibility rather than absence.
+  def test_get_group_refuses_groups_outside_users_visibility
+    Role.update_all(users_visibility: 'members_of_visible_projects')
+    hidden = Group.create!(lastname: 'Hidden Team')
+
+    [hidden.name, hidden.id].each do |identifier|
+      result = call_as(User.find(3), 'get_group', 'group' => identifier, 'include_users' => true)[:result]
+
+      assert result[:isError]
+      assert_match(/No group matching/, result[:content].first[:text])
+    end
+    assert_not call_as(User.find(1), 'get_group', 'group' => hidden.id)[:result][:isError]
+  end
+
   # --- get_issue reshaped payload -------------------------------------------
 
   def test_get_issue_returns_typed_identities_and_closed_on_and_status_object
