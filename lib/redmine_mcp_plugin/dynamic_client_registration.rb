@@ -39,6 +39,18 @@ module RedmineMcpPlugin
             RedmineMcpPlugin::DynamicClientRegistration.permitted?(params)
           end
         end
+        attach_openid_request!
+      end
+
+      # The gem adds AccessGrant#openid_request from the grant mixin's included
+      # hook, but production eager-loads the grant model before this lazy require,
+      # so the hook never fires and /oauth/token fails on the missing association.
+      # Must run after configure, which supplies the association's class name.
+      def attach_openid_request!
+        grant = Doorkeeper.config.access_grant_model
+        return if grant.reflect_on_association(:openid_request)
+
+        grant.prepend(Doorkeeper::OpenidConnect::AccessGrant)
       end
 
       def permitted?(params)

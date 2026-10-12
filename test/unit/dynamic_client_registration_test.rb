@@ -81,4 +81,14 @@ class RedmineMcpPluginDcrPolicyTest < ActiveSupport::TestCase
   def test_permitted_is_false_when_gate_closed_even_for_a_clean_request
     with_settings_hash(all_on('dcr_enabled' => '0')) { assert_not DCR.permitted?(params) }
   end
+
+  def test_access_grant_has_openid_request_association_exactly_once
+    skip 'doorkeeper-openid_connect unavailable' unless DCR.available?
+
+    grant = Doorkeeper.config.access_grant_model
+    DCR.attach_openid_request!
+    DCR.attach_openid_request!
+    assert grant.reflect_on_association(:openid_request)
+    assert_equal 1, grant.ancestors.count(Doorkeeper::OpenidConnect::AccessGrant)
+  end
 end

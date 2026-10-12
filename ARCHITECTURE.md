@@ -374,7 +374,10 @@ setting is enabled.
 loads `doorkeeper-openid_connect` during route drawing, avoiding the gem's early
 controller binding. It exposes only the gem's registration controller and admits
 public clients whose redirect URIs are all HTTPS or loopback. Its gate requires the
-endpoint, OAuth mode, and dynamic registration setting to be enabled.
+endpoint, OAuth mode, and dynamic registration setting to be enabled. Because the
+lazy load happens after production eager-loads the access grant model, it also
+attaches the gem's `openid_request` association to that model explicitly; the
+token endpoint fails without it.
 
 The plugin migration
 [`CreateDoorkeeperOpenidConnectTables`](db/migrate/20261007120000_create_doorkeeper_openid_connect_tables.rb)
