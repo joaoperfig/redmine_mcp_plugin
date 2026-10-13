@@ -94,6 +94,7 @@ while read-only mode is on, which is the default.
 | `list_enumerations` | none. Trackers, statuses, priorities |
 | `list_users` | none. Filtered by `Principal.visible` |
 | `create_issue` (write) | `add_issues` |
+| `update_issue` (write) | `update_issue` |
 | `add_issue_note` (write) | `add_issue_notes`, plus `set_notes_private` for private notes |
 
 `get_issue` respects per-field custom field visibility and private notes. `list_users` uses
