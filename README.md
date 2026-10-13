@@ -4,7 +4,8 @@ A [Model Context Protocol](https://modelcontextprotocol.io) server that runs ins
 plugin. It adds one endpoint, `POST /mcp`, and authenticates it with Redmine's own mechanisms. Every
 tool runs as a real Redmine user and is limited by that user's permissions.
 
-Version 0.1.0. Read-only by default. Built against Redmine 7.0.0, Rails 8.1.3.1, Ruby 3.4.10.
+Version 0.1.0. Read-only by default.
+Built against Redmine 7.0.0, Rails 8.1.3.1, Ruby 3.4.10.
 
 ## Status
 
@@ -106,8 +107,6 @@ The list tools take `limit` and `offset` and return `total_count`, `returned`, `
 `limit` is capped by the `max_results` setting, 100 by default, so page with `offset`.
 
 ## Protocol
-
-Three revisions, negotiated per request.
 
 2026-07-28 is stateless: no `initialize` handshake and no `Mcp-Session-Id`. `server/discover` is
 implemented, as that revision requires. Results carry `resultType` and server identity in `_meta`, and
