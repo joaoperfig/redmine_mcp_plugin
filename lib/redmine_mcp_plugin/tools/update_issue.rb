@@ -18,7 +18,7 @@ module RedmineMcpPlugin
                'priority' => { 'type' => 'string', 'description' => 'Priority name.' },
                'status' => { 'type' => 'string', 'description' => 'Target status name.' },
                'done_ratio' => { 'type' => 'integer', 'description' => 'Completion percentage from 0 to 100.' },
-               'assigned_to' => { 'type' => 'string', 'description' => 'Login of the assignee, or "none" to unassign.' },
+               'assigned_to' => { 'type' => 'string', 'description' => 'Login or name of the user or group to assign to, or "none" to unassign.' },
                'notes' => { 'type' => 'string', 'description' => 'Optional comment to add with the update.' },
                'private' => { 'type' => 'boolean', 'description' => 'Mark the note private when notes are provided.' }
              },
@@ -83,8 +83,8 @@ module RedmineMcpPlugin
           if assigned_value.empty? || assigned_value.casecmp('none').zero?
             attributes['assigned_to_id'] = nil
           else
-            assignee = issue.project.assignable_users.find_by(login: assigned_value)
-            raise ToolError, "#{assigned_value.inspect} is not an assignable user on #{issue.project.identifier}" if assignee.nil?
+            assignee = find_assignable(issue.project, assigned_value)
+            raise ToolError, "#{assigned_value.inspect} is not an assignable user or group on #{issue.project.identifier}" if assignee.nil?
 
             attributes['assigned_to_id'] = assignee.id
           end

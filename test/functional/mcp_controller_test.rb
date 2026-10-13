@@ -174,6 +174,9 @@ class McpControllerTest < Redmine::ControllerTest
   end
 
   def test_update_issue_changes_fields
+    # A write tool, so read-only mode -- which is on by default -- has to be
+    # switched off first.
+    enable_mcp('read_only' => '0')
     issue = Issue.find(1)
     assignee = issue.project.assignable_users.first
     post_mcp rpc('tools/call', { 'name' => 'update_issue',
@@ -192,6 +195,54 @@ class McpControllerTest < Redmine::ControllerTest
     assert_equal 'Closed', json_body['result']['structuredContent']['status']
     assert_equal 100, json_body['result']['structuredContent']['done_ratio']
     assert_equal assignee.login, User.find(json_body['result']['structuredContent']['assigned_to_id']).login
+  end
+
+  # --- assignment ---------------------------------------------------------
+
+  # A Group is a Principal with no login, so `assigned_to` could never resolve
+  # to one while the lookup went through `find_by(login:)`. Whether a group is
+  # eligible at all stays core's decision, not the plugin's:
+  # Project#assignable_users only adds 'Group' to its types while
+  # Setting.issue_group_assignment is on, which is what the next test pins.
+  def test_update_issue_assigns_to_a_group
+    enable_mcp('read_only' => '0')
+    Setting.issue_group_assignment = '1'
+    # Fixture group 11 ('B Team') is a Developer member of project 2.
+    post_mcp rpc('tools/call', { 'name' => 'update_issue',
+                                 'arguments' => { 'id' => 4, 'assigned_to' => 'B Team' } }),
+             api_key_headers(User.find(1))
+
+    assert_response :success
+    assert_equal 11, json_body['result']['structuredContent']['assigned_to_id']
+    assert_equal 11, Issue.find(4).assigned_to_id
+  end
+
+  # The plugin must not invent a second policy: with the core setting off, a
+  # group is not in Project#assignable_users and the call is refused.
+  def test_group_assignment_is_refused_while_core_disallows_it
+    enable_mcp('read_only' => '0')
+    Setting.issue_group_assignment = '0'
+    post_mcp rpc('tools/call', { 'name' => 'update_issue',
+                                 'arguments' => { 'id' => 4, 'assigned_to' => 'B Team' } }),
+             api_key_headers(User.find(1))
+
+    assert json_body['result']['isError']
+    assert_match(/not an assignable user or group/, json_body['result']['content'].first['text'])
+    assert_equal 2, Issue.find(4).assigned_to_id
+  end
+
+  def test_create_issue_assigns_to_a_group
+    enable_mcp('read_only' => '0')
+    Setting.issue_group_assignment = '1'
+    post_mcp rpc('tools/call', { 'name' => 'create_issue',
+                                 'arguments' => { 'project' => 'onlinestore',
+                                                  'subject' => 'Work for the team',
+                                                  'assigned_to' => 'B Team' } }),
+             api_key_headers(User.find(1))
+
+    assert_response :success
+    created = Issue.find(json_body['result']['structuredContent']['id'])
+    assert_equal 11, created.assigned_to_id
   end
 
   # --- visibility ---------------------------------------------------------

@@ -152,6 +152,24 @@ module RedmineMcpPlugin
       }
     end
 
+    # Resolves an `assigned_to` value to a principal the project accepts.
+    #
+    # `Principal.detect_by_keyword` is core's own string-to-assignee resolver --
+    # MailHandler and IssueImport call it on this exact collection -- and it is
+    # the only reason a group can be named here at all: a group has no login,
+    # so matching on `login` alone can never find one (Group#name is an alias
+    # for lastname). Login is still tried first, so a login that collides with
+    # a group name resolves to the user.
+    #
+    # Eligibility is not decided here. Groups appear in Project#assignable_users
+    # only while Setting.issue_group_assignment is on, and Issue's own
+    # validation refuses any principal outside issue.assignable_users -- so the
+    # administrator's setting still governs, without this plugin reading it and
+    # breaking on a Redmine where the setting has been removed.
+    def find_assignable(project, value)
+      Principal.detect_by_keyword(project.assignable_users, value)
+    end
+
     def fetch_project(identifier)
       raise ToolError, 'project is required' if identifier.blank?
 

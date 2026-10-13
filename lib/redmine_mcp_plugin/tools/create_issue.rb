@@ -17,7 +17,7 @@ module RedmineMcpPlugin
                'description' => { 'type' => 'string' },
                'tracker' => { 'type' => 'string', 'description' => 'Tracker name. Defaults to the project default.' },
                'priority' => { 'type' => 'string', 'description' => 'Priority name. Defaults to the Redmine default.' },
-               'assigned_to' => { 'type' => 'string', 'description' => 'Login of the user to assign to.' }
+               'assigned_to' => { 'type' => 'string', 'description' => 'Login or name of the user or group to assign to.' }
              },
              'required' => %w[project subject],
              'additionalProperties' => false
@@ -47,9 +47,9 @@ module RedmineMcpPlugin
           attributes['priority_id'] = priority.id
         end
 
-        if (login = arguments['assigned_to'].presence)
-          assignee = project.assignable_users.find_by(login: login.to_s)
-          raise ToolError, "#{login.inspect} is not an assignable user on #{project.identifier}" if assignee.nil?
+        if (assignee_name = arguments['assigned_to'].presence)
+          assignee = find_assignable(project, assignee_name.to_s)
+          raise ToolError, "#{assignee_name.inspect} is not an assignable user or group on #{project.identifier}" if assignee.nil?
 
           attributes['assigned_to_id'] = assignee.id
         end
