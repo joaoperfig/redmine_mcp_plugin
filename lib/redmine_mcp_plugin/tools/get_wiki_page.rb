@@ -2,21 +2,21 @@
 
 module RedmineMcpPlugin
   module Tools
-    class GetWikiPage < Tool
-      tool 'get_wiki_page',
-           title: 'Get wiki page',
-           description: 'Fetch the text of one wiki page.',
-           permission: :view_wiki_pages,
-           schema: {
-             'type' => 'object',
-             'properties' => {
-               'project' => { 'type' => %w[string integer],
-                             'description' => 'Project identifier or numeric id.' },
-               'title' => { 'type' => 'string', 'description' => 'Wiki page title.' }
-             },
-             'required' => %w[project title],
-             'additionalProperties' => false
-           }
+    class GetWikiPage < Base
+      tool_name 'get_wiki_page'
+      title 'Get wiki page'
+      description 'Fetch the text of one wiki page.'
+      permission :view_wiki_pages
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'project' => { 'type' => %w[string integer],
+                         'description' => 'Project identifier or numeric id.' },
+          'title' => { 'type' => 'string', 'description' => 'Wiki page title.' }
+        },
+        'required' => %w[project title],
+        'additionalProperties' => false
+      )
 
       private
 

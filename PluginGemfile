@@ -1,0 +1,17 @@
+# frozen_string_literal: true
+
+# Picked up by Redmine's root Gemfile (globs plugins/*/{Gemfile,PluginGemfile}).
+# require: false is load-bearing: the gem's engine binds Doorkeeper's controllers
+# at boot before Redmine sets base_controller, crashing the app. The plugin loads
+# it lazily instead (lib/redmine_mcp_plugin/dynamic_client_registration.rb).
+gem 'doorkeeper-openid_connect', '~> 2.0', require: false
+
+# Official MCP Ruby SDK. Pinned exactly: the plugin treats the SDK's version
+# negotiation and result shape as a contract, so an unreviewed minor bump must
+# not change wire behavior silently. Unlike doorkeeper-openid_connect, this gem
+# is intentionally auto-required by Bundler so MCP::Server and MCP::Tool exist
+# before Redmine eager-loads the plugin's SDK-backed classes. json_schemer is the
+# SDK's input validator, declared explicitly so the host bundle resolves it
+# directly rather than relying on a transitive pin.
+gem 'mcp', '1.7.0'
+gem 'json_schemer'

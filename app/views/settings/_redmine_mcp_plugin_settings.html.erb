@@ -63,4 +63,10 @@
     <em class="info"><%= l('redmine_mcp_plugin.settings.max_results_hint',
                            max: RedmineMcpPlugin::Settings::ABSOLUTE_MAX_RESULTS) %></em>
   </p>
+  <p>
+    <label for="settings_dcr_enabled"><%= l('redmine_mcp_plugin.settings.dcr_enabled') %></label>
+    <%= hidden_field_tag 'settings[dcr_enabled]', '0' %>
+    <%= check_box_tag 'settings[dcr_enabled]', '1', checked.call('dcr_enabled'), id: 'settings_dcr_enabled' %>
+    <em class="info"><%= l('redmine_mcp_plugin.settings.dcr_enabled_hint') %></em>
+  </p>
 </fieldset>

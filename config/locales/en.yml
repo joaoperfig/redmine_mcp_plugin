@@ -17,8 +17,10 @@ en:
       read_only: Read-only mode
       read_only_hint: "Hide and refuse every tool that creates or changes data. On by default."
       allowed_origins: Additional allowed origins
-      allowed_origins_hint: "One per line, e.g. https://app.example.com. This Redmine's own origin is always allowed. Requests with no Origin header - which is every non-browser MCP client - are unaffected."
+      allowed_origins_hint: "One per line, e.g. https://app.example.com. This Redmine's own origin is always allowed. Requests with no Origin header - the usual case for non-browser MCP clients - are unaffected."
       max_results: Maximum results per call
       max_results_hint: "Upper bound on rows any single tool may return. Capped at %{max}."
+      dcr_enabled: Enable dynamic client registration (RFC 7591)
+      dcr_enabled_hint: "Off by default. When on, opens an unauthenticated registration endpoint where any caller can register an OAuth2 client."
       rest_api_warning: "The REST API is disabled in Administration > Settings > API, which disables OAuth2, API key and HTTP Basic authentication for this endpoint too."
       no_auth_warning: "No authentication mode is enabled, so the endpoint will refuse every request."

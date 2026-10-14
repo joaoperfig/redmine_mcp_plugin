@@ -1,27 +1,15 @@
 # frozen_string_literal: true
 
-# OAuth2 discovery documents for the MCP endpoint.
-#
-# Without these an MCP client cannot start an OAuth2 flow on its own. It posts
-# to /mcp, gets 401, and has nowhere to look: the bare `WWW-Authenticate: Bearer
-# realm="Redmine"` names no authorization server. So the recommended auth mode
-# was reachable only by a human pasting a token in by hand.
-#
-# Two documents, both unauthenticated by necessity -- a client reads them before
-# it has any credential:
+# Serves the unauthenticated OAuth2 discovery documents an MCP client needs
+# before it has credentials:
 #
 #   RFC 9728  /.well-known/oauth-protected-resource[/mcp]  what protects /mcp
 #   RFC 8414  /.well-known/oauth-authorization-server      where to get a token
 #
-# The second describes Redmine core's own Doorkeeper provider rather than
-# anything this plugin implements. Redmine does not publish it, and a client
-# that cannot find token_endpoint cannot proceed. Should a later Redmine start
-# serving it, core's routes are drawn before plugin routes and core wins, which
-# is the outcome we want.
+# The authorization-server document describes Redmine's Doorkeeper provider.
+# Core routes take precedence if Redmine supplies this document in the future.
 class McpMetadataController < ApplicationController
-  # A client has no session and no token at this point. That is the whole
-  # purpose of these endpoints, and both documents are public by design: they
-  # contain endpoint URLs and scope names, no per-user data.
+  # Discovery is public by design and exposes no per-user data.
   skip_before_action :verify_authenticity_token
   skip_before_action :check_if_login_required, raise: false
 
@@ -31,7 +19,7 @@ class McpMetadataController < ApplicationController
     render json: {
       resource: mcp_resource_url,
       authorization_servers: [root_url_without_trailing_slash],
-      scopes_supported: supported_scopes,
+      scopes_supported: bootstrap_scopes,
       bearer_methods_supported: %w[header],
       resource_name: 'Redmine MCP Server',
       resource_documentation: 'https://github.com/joaoperfig/redmine_mcp_plugin'
@@ -47,13 +35,11 @@ class McpMetadataController < ApplicationController
       response_types_supported: %w[code],
       grant_types_supported: %w[authorization_code refresh_token],
       token_endpoint_auth_methods_supported: %w[client_secret_basic client_secret_post],
-      # Deliberately no registration_endpoint. Redmine has no RFC 7591 dynamic
-      # client registration -- an administrator creates the application by hand
-      # under Administration > Applications. Advertising an endpoint that
-      # answers 404 is worse than omitting it: a client that requires
-      # registration can then fail for the right reason.
       service_documentation: 'https://www.redmine.org/projects/redmine/wiki/Rest_api#OAuth2'
     }
+    if RedmineMcpPlugin::Settings.dcr_enabled?
+      payload[:registration_endpoint] = "#{root_url_without_trailing_slash}/oauth/registration"
+    end
     methods = code_challenge_methods
     payload[:code_challenge_methods_supported] = methods if methods.any?
     render json: payload
@@ -61,8 +47,7 @@ class McpMetadataController < ApplicationController
 
   private
 
-  # 404 rather than an empty document when there is nothing to discover: an
-  # advertisement for a disabled endpoint just sends clients down a dead end.
+  # Disabled OAuth2 endpoints must not advertise unusable discovery metadata.
   def require_oauth2_discoverable
     return if RedmineMcpPlugin::Settings.enabled? && RedmineMcpPlugin::Settings.oauth2_auth?
 
@@ -77,33 +62,26 @@ class McpMetadataController < ApplicationController
     "#{root_url_without_trailing_slash}/mcp"
   end
 
-  # Redmine registers every permission name as an OAuth2 scope, plus 'admin',
-  # which is what lets a token be strictly weaker than the user who issued it.
-  # Doorkeeper's own configuration is the authoritative list; AccessControl is
-  # the fallback if that ever moves.
   def supported_scopes
-    return [] unless defined?(Doorkeeper)
+    return bootstrap_scopes unless defined?(Doorkeeper)
 
     scopes = doorkeeper_config.scopes.to_a.map(&:to_s)
-    return scopes if scopes.any?
-
-    Redmine::AccessControl.permissions.map { |permission| permission.name.to_s } + %w[admin]
+    scopes.any? ? scopes : bootstrap_scopes
   rescue StandardError => e
     Rails.logger.warn("[redmine_mcp_plugin] could not enumerate OAuth2 scopes: #{e.class}: #{e.message}")
-    []
+    bootstrap_scopes
   end
 
-  # Doorkeeper renamed .configuration to .config and keeps both, but which one
-  # is the alias has changed across 5.x. Ask for whichever this install has.
+  def bootstrap_scopes
+    RedmineMcpPlugin::OAUTH_BOOTSTRAP_SCOPES
+  end
+
+  # Doorkeeper 5.x installations expose either .config or .configuration.
   def doorkeeper_config
     Doorkeeper.respond_to?(:config) ? Doorkeeper.config : Doorkeeper.configuration
   end
 
-  # MCP requires clients to use PKCE, so whether Redmine's Doorkeeper supports
-  # it decides whether an automated flow can work at all. Probed rather than
-  # assumed: advertising S256 on an install that cannot honour it produces a
-  # failure at the token endpoint, which is a much harder thing to debug than a
-  # missing field here.
+  # Reports only PKCE methods the installed Doorkeeper can honor.
   def code_challenge_methods
     return [] unless defined?(Doorkeeper)
 
@@ -117,10 +95,7 @@ class McpMetadataController < ApplicationController
         []
       end
 
-    # S256 only, even when Doorkeeper also offers plain. MCP requires clients
-    # to use S256, so advertising plain in an MCP-facing document offers a
-    # weaker method that no conformant client may pick. If S256 is absent an
-    # empty list is the honest answer: no automated MCP flow can work here.
+    # MCP requires S256; advertising plain would offer a forbidden weaker mode.
     supported & %w[S256]
   rescue StandardError => e
     Rails.logger.warn("[redmine_mcp_plugin] could not determine PKCE support: #{e.class}: #{e.message}")
