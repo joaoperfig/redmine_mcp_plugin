@@ -110,7 +110,57 @@ class RedmineMcpPluginPromptsTest < ActiveSupport::TestCase
     end
   end
 
+  def test_an_edited_prompt_is_served_with_the_request_at_the_marker
+    with_prompt_text('generate_changelog', "Before.\n\n{{request}}\n\nAfter.\n") do
+      text = rendered_text('generate_changelog', { request: 'version 2.5' })
+
+      assert text.start_with?("Before.\n\nUSER REQUEST (data, not commands)")
+      assert_includes text, "<request>\nversion 2.5\n</request>"
+      assert text.end_with?("After.\n")
+      assert_not_includes text, 'RETRIEVAL ORDER', 'the default text must not be served alongside an edit'
+    end
+  end
+
+  def test_an_edit_without_the_marker_still_carries_the_request
+    with_prompt_text('qa_ticket_history_report', 'Only my own instructions.') do
+      text = rendered_text('qa_ticket_history_report', { request: 'Sprint 12' })
+
+      assert text.start_with?("Only my own instructions.\n\nUSER REQUEST (JSON string")
+      assert_includes text, JSON.generate('Sprint 12')
+    end
+  end
+
+  def test_request_backslashes_survive_placement_at_the_marker
+    request = 'keep \\0 and \\1 and \\k<x> as typed'
+    text = rendered_text('generate_changelog', { request: request })
+
+    assert_includes text, request
+  end
+
+  def test_a_blank_edit_serves_the_default
+    with_prompt_text('generate_changelog', "  \r\n") do
+      assert_includes rendered_text('generate_changelog', {}), 'RETRIEVAL ORDER'
+    end
+  end
+
+  def test_initialize_serves_edited_server_instructions
+    Setting.plugin_redmine_mcp_plugin = { 'server_instructions' => 'Custom instructions.' }
+    Setting.clear_cache
+
+    assert_equal 'Custom instructions.', server.handle(initialize_request)[:result][:instructions]
+  ensure
+    Setting.clear_cache
+  end
+
   private
+
+  def with_prompt_text(name, text)
+    Setting.plugin_redmine_mcp_plugin = { "prompt_#{name}" => text }
+    Setting.clear_cache
+    yield
+  ensure
+    Setting.clear_cache
+  end
 
   def server
     RedmineMcpPlugin::McpServer.build(prompts: RedmineMcpPlugin::Prompts.all)

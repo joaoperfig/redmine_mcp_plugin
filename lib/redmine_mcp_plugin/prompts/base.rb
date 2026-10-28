@@ -9,10 +9,39 @@ module RedmineMcpPlugin
     # independently authorized, so a prompt cannot widen what its caller may see.
     #
     # Subclasses declare the SDK prompt metadata (`prompt_name`, `title`,
-    # `description`, `arguments`) and implement the class method `template`.
+    # `description`, `arguments`), a `DEFAULT_TEXT`, and the class methods
+    # `template` and `request_section`.
+    #
+    # The text served is the administrator's from the settings page's Prompts
+    # tab, falling back to `DEFAULT_TEXT`. `REQUEST_PLACEHOLDER` marks where the
+    # rendered request section goes; a text without it gets the section
+    # appended, so an edit can never drop the caller's request or the framing
+    # that marks it as data rather than instructions.
     class Base < MCP::Prompt
+      REQUEST_PLACEHOLDER = '{{request}}'
+
       class << self
+        def setting_key
+          "prompt_#{name_value}"
+        end
+
+        def instruction_text
+          Settings.text(setting_key, self::DEFAULT_TEXT)
+        end
+
         private
+
+        # The block form of sub keeps backslash sequences in the request, such
+        # as \1 or \0, literal instead of being read as back-references.
+        def render(request:)
+          section = request_section(request)
+          text = instruction_text
+          if text.include?(REQUEST_PLACEHOLDER)
+            text.sub(REQUEST_PLACEHOLDER) { section }
+          else
+            "#{text.rstrip}\n\n#{section}\n"
+          end
+        end
 
         # A single user-role text message is the whole prompt result: the model
         # reads the instructions and drives the workflow with the read tools.

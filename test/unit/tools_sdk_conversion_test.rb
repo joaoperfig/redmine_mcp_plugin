@@ -122,7 +122,55 @@ class RedmineMcpPluginToolsSdkConversionTest < ActiveSupport::TestCase
     assert unknown_property[:isError], 'additionalProperties:false must reject unknown keys'
   end
 
+  # --- Administrator-edited descriptions ------------------------------------
+
+  def test_edited_descriptions_are_listed
+    with_descriptions('tool_get_project_description' => "Edited tool.\r\nSecond line.",
+                      'tool_get_project_param_project_description' => 'Edited parameter.') do
+      listed = tools_list(build_server(User.find(1))).find { |t| t[:name] == 'get_project' }
+
+      assert_equal "Edited tool.\nSecond line.", listed[:description]
+      assert_equal 'Edited parameter.', listed[:inputSchema][:properties][:project][:description]
+    end
+  end
+
+  def test_unedited_descriptions_are_listed_unchanged
+    with_descriptions('tool_get_project_description' => "  \r\n") do
+      tool = RedmineMcpPlugin::Tools::GetProject
+
+      assert_equal tool.description_value, tool.to_h[:description]
+      assert_equal tool.input_schema_value.to_h, tool.to_h[:inputSchema]
+    end
+  end
+
+  # Only the listed copy changes: the schema calls are validated against keeps
+  # its own descriptions, names, types, and required list.
+  def test_edited_descriptions_do_not_change_validation
+    tool = RedmineMcpPlugin::Tools::GetProject
+    schema_before = tool.input_schema_value.to_h.deep_dup
+
+    with_descriptions('tool_get_project_param_project_description' => 'Edited parameter.') do
+      tool.to_h
+      assert_equal schema_before, tool.input_schema_value.to_h
+
+      server = build_server(User.find(1))
+      assert call(server, 'get_project')[:result][:isError], 'required parameters stay required'
+      assert call(server, 'get_project', 'project' => 'ecookbook', 'bogus' => 1)[:result][:isError],
+             'unknown parameters stay rejected'
+      assert_not call(server, 'get_project', 'project' => 'ecookbook')[:result][:isError]
+    end
+  end
+
   private
+
+  def with_descriptions(edits)
+    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '1').merge(edits)
+    Setting.clear_cache
+    yield
+  ensure
+    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '1')
+    Setting.clear_cache
+  end
 
   def build_server(user)
     RedmineMcpPlugin::McpServer.build(

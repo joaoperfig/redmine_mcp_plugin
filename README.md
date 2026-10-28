@@ -166,6 +166,28 @@ never dereferenced, so a long body, path, URL, or delimiter-like text in your no
 is accepted rather than refused. The skills are read-only, and every read tool they
 name independently enforces the caller's permissions and record visibility.
 
+### Editing the prompts and tool descriptions
+
+**Administration > Plugins > Redmine MCP Server > Configure** has two tabs of
+model-facing text:
+
+* **Prompts**: the text of both prompts, and the server instructions every
+  client receives when it connects.
+* **Tools**: each tool's description and each parameter's description, as
+  sent in `tools/list`. Parameter names, types, and required parameters are not
+  editable, because every call is validated against them. Clients usually fetch
+  the tool list once per connection, so edits apply when they reconnect.
+
+Each field starts with the built-in default. A field left at its default stores
+nothing, so it keeps following the default when the plugin is updated; clearing
+a field, or **Restore default**, goes back to it.
+
+In a prompt's text, `{{request}}` marks where the caller's `request` goes,
+together with the framing that tells the model to treat it as data. A text
+without the marker gets that section appended at the end, so an edit cannot
+drop the request. Prompt names, titles, descriptions, and arguments are not
+editable.
+
 ## Resources (issue attachments)
 
 The server declares the `resources` capability for one thing: the bytes of a file

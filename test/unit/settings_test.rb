@@ -15,6 +15,22 @@ class RedmineMcpPluginSettingsTest < ActiveSupport::TestCase
     yield
   end
 
+  def test_text_falls_back_to_the_default_when_blank_or_absent
+    with_settings_hash({}) { assert_equal 'built-in', S.text('prompt_x', 'built-in') }
+    with_settings_hash('prompt_x' => " \r\n ") { assert_equal 'built-in', S.text('prompt_x', 'built-in') }
+  end
+
+  def test_text_returns_an_edit_with_lf_line_breaks
+    with_settings_hash('prompt_x' => "line one\r\nline two") do
+      assert_equal "line one\nline two", S.text('prompt_x', 'built-in')
+    end
+  end
+
+  def test_server_instructions_default_and_override
+    with_settings_hash({}) { assert_equal RedmineMcpPlugin::McpServer::INSTRUCTIONS, S.server_instructions }
+    with_settings_hash('server_instructions' => 'Custom') { assert_equal 'Custom', S.server_instructions }
+  end
+
   def test_symbol_keyed_settings_are_readable
     with_settings_hash(enabled: 'true', read_only: 'false') do
       assert S.enabled?

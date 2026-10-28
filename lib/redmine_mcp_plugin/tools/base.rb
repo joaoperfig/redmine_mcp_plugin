@@ -133,6 +133,35 @@ module RedmineMcpPlugin
           @annotations_value || default_annotations
         end
 
+        def description_setting_key
+          "tool_#{name_value}_description"
+        end
+
+        def parameter_setting_key(parameter)
+          "tool_#{name_value}_param_#{parameter}_description"
+        end
+
+        # The tools/list entry, with the descriptions administrators edited on
+        # the settings page's Tools tab. Only description text is replaced, in a
+        # copy: arguments are validated against input_schema_value, which this
+        # never touches, so an edit changes what the model reads but not which
+        # names, types, required parameters, or bounds the server accepts.
+        def to_h
+          hash = super
+          settings = Settings.all
+          description = Settings.text(description_setting_key, nil, settings)
+          hash[:description] = description if description
+
+          properties = hash.dig(:inputSchema, :properties)
+          return hash unless properties
+
+          edited = properties.to_h do |parameter, spec|
+            text = Settings.text(parameter_setting_key(parameter), nil, settings)
+            [parameter, text ? spec.merge(description: text) : spec]
+          end
+          hash.merge(inputSchema: hash[:inputSchema].merge(properties: edited))
+        end
+
         private
 
         def default_annotations

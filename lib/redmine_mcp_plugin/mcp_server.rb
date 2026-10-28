@@ -6,6 +6,8 @@ module RedmineMcpPlugin
   # and how the server introduces itself. The controller builds one server for
   # each authenticated request with only that caller's visible tools.
   module McpServer
+    # Default only: administrators can replace it on the settings page's
+    # Prompts tab, see Settings.server_instructions.
     INSTRUCTIONS =
       'Redmine over MCP. Every tool runs as the authenticated Redmine user and is ' \
       'limited by that user\'s project permissions, and by the OAuth2 scopes of the ' \
@@ -61,7 +63,7 @@ module RedmineMcpPlugin
         name: 'redmine-mcp-plugin',
         title: 'Redmine',
         version: RedmineMcpPlugin::VERSION,
-        instructions: INSTRUCTIONS,
+        instructions: Settings.server_instructions,
         tools: tools,
         prompts: prompts,
         resource_templates: resource_templates,
