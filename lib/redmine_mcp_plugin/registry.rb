@@ -21,6 +21,7 @@ module RedmineMcpPlugin
           Tools::GetGroup,
           Tools::CreateIssue,
           Tools::UpdateIssue,
+          Tools::AddIssueRelation,
           Tools::AddIssueNote,
           Tools::CreateVersion,
           Tools::CreateWikiPage,

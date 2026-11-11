@@ -3,6 +3,8 @@
 module RedmineMcpPlugin
   module Tools
     class UpdateIssue < Base
+      include IssueAttributes
+
       tool_name 'update_issue'
       title 'Update issue'
       description 'Update a visible issue by id.'
@@ -19,6 +21,12 @@ module RedmineMcpPlugin
                'status' => { 'type' => 'string', 'description' => 'Target status name.' },
                'done_ratio' => { 'type' => 'integer', 'description' => 'Completion percentage from 0 to 100.' },
                'assigned_to' => { 'type' => 'string', 'description' => 'Login or name of the user or group to assign to, or "none" to unassign.' },
+               'category' => { 'type' => 'string', 'description' => 'Issue category name, or "none" to clear.' },
+               'fixed_version' => { 'type' => 'string',
+                                    'description' => 'Target version name, or "none" to clear. Must be open.' },
+               'parent_issue_id' => { 'type' => %w[integer string],
+                                      'description' => 'Parent issue id, or "none" to make it a top-level issue. ' \
+                                                       'Requires the manage_subtasks permission.' },
                'notes' => { 'type' => 'string', 'description' => 'Optional comment to add with the update.' },
                'private' => { 'type' => 'boolean', 'description' => 'Mark the note private when notes are provided.' }
              },
@@ -64,11 +72,7 @@ module RedmineMcpPlugin
         end
 
         if arguments.key?('status')
-          status_name = arguments['status'].to_s
-          status = IssueStatus.find_by(name: status_name)
-          raise ToolError, "Project #{issue.project.identifier} has no status named #{status_name.inspect}" if status.nil?
-
-          attributes['status_id'] = status.id
+          attributes['status_id'] = status_id_for(issue, arguments['status'])
         end
 
         if arguments.key?('done_ratio')
@@ -90,6 +94,18 @@ module RedmineMcpPlugin
           end
         end
 
+        if arguments.key?('category')
+          attributes['category_id'] = category_id_for(issue, arguments['category'])
+        end
+
+        if arguments.key?('fixed_version')
+          attributes['fixed_version_id'] = fixed_version_id_for(issue, arguments['fixed_version'])
+        end
+
+        if arguments.key?('parent_issue_id')
+          attributes['parent_issue_id'] = parent_issue_id_for(issue, arguments['parent_issue_id'])
+        end
+
         if arguments.key?('notes')
           notes = arguments['notes'].to_s
           raise ToolError, 'notes must not be empty' if notes.strip.empty?
@@ -102,7 +118,10 @@ module RedmineMcpPlugin
           end
         end
 
-        issue.safe_attributes = attributes unless attributes.empty?
+        unless attributes.empty?
+          issue.safe_attributes = attributes
+          ensure_applied!(issue, attributes)
+        end
         raise ToolError, "Could not update issue: #{issue.errors.full_messages.join('; ')}" unless issue.save
 
         {
@@ -113,6 +132,9 @@ module RedmineMcpPlugin
           tracker: issue.tracker&.name,
           priority: issue.priority&.name,
           assigned_to_id: issue.assigned_to_id,
+          category: issue.category&.name,
+          fixed_version: issue.fixed_version&.name,
+          parent_id: issue.parent_id,
           done_ratio: issue.done_ratio,
           updated_on: iso(issue.updated_on)
         }
