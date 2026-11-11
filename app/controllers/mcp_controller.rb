@@ -29,7 +29,7 @@ class McpController < ApplicationController
     begin
       message = JSON.parse(body)
     rescue JSON::ParserError
-      return render_rpc(RedmineMcpPlugin::JsonRpc.error(nil, RedmineMcpPlugin::JsonRpc::PARSE_ERROR, 'Parse error'), :bad_request)
+      return render_json_parse_error
     end
 
     # Supported MCP revisions forbid batches; never process only part of one.
@@ -259,5 +259,18 @@ class McpController < ApplicationController
 
   def render_rpc(payload, status)
     render json: payload, status: status, content_type: 'application/json'
+  end
+
+  def render_json_parse_error
+    # Avoid Rails rendering here: on Redmine 6.1 it may touch `params`
+    # again while resolving the layout, re-raising the parse error.
+    payload = RedmineMcpPlugin::JsonRpc.error(
+      nil,
+      RedmineMcpPlugin::JsonRpc::PARSE_ERROR,
+      'Parse error'
+    )
+    response.status = :bad_request
+    response.content_type = 'application/json'
+    self.response_body = payload.to_json
   end
 end
