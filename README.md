@@ -140,7 +140,8 @@ token scopes; tools denied by the user's role remain hidden.
 | Wiki pages | `list_wiki_pages`, `get_wiki_page` | `view_wiki_pages` |
 | Metadata | `list_enumerations` | None |
 | Users | `list_users` | Filtered by Redmine principal visibility |
-| Create an issue | `create_issue` | `add_issues`; read-only mode must be disabled |
+| Issue custom fields | `list_issue_custom_fields` | `add_issues` |
+| Create an issue | `create_issue` (optional `custom_fields`, by id or name; see `list_issue_custom_fields`) | `add_issues`; read-only mode must be disabled |
 | Add an issue note | `add_issue_note` | `add_issue_notes`; private notes also require `set_notes_private`; read-only mode must be disabled |
 
 Tool arguments are validated against their declared schemas. The paginated

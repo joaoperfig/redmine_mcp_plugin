@@ -175,6 +175,22 @@ module RedmineMcpPlugin
                    'type, current project, and Redmine configuration.'
                  )
                },
+          'status' => { 'type' => 'string', 'enum' => %w[open closed all],
+                        'description' => 'Issue status filter. Defaults to all.' },
+          'tracker' => { 'type' => 'string', 'description' => 'Tracker name, e.g. Bug.' },
+          'assigned_to_me' => { 'type' => 'boolean', 'description' => 'Only issues assigned to the authenticated user.' },
+          'fixed_version_id' => { 'type' => 'integer', 'description' => 'Only issues targeting this version id.' },
+          'author_id' => { 'type' => 'integer', 'description' => 'Only issues created by this user id.' },
+          'category_id' => { 'type' => 'integer', 'description' => 'Only issues in this category id.' },
+          'updated_since' => { 'type' => 'string', 'format' => 'date',
+                               'description' => 'Only issues updated on or after this ISO-8601 date.' },
+          'created_from' => { 'type' => 'string', 'format' => 'date',
+                              'description' => 'Only issues created on or after this ISO-8601 date.' },
+          'created_to' => { 'type' => 'string', 'format' => 'date',
+                            'description' => 'Only issues created on or before this ISO-8601 date.' },
+          'sort' => { 'type' => 'string',
+                      'enum' => %w[updated_on updated_on:desc created_on created_on:desc id id:desc],
+                      'description' => 'Result order. Defaults to updated_on:desc.' },
                'offset' => {
                  'type' => 'integer',
                  'minimum' => 0,
@@ -187,7 +203,7 @@ module RedmineMcpPlugin
                }
              },
              'additionalProperties' => false
-           }
+           })
 
       private
 

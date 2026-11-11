@@ -26,7 +26,24 @@ module RedmineMcpPlugin
                'category' => { 'type' => 'string', 'description' => 'Issue category name in the project.' },
                'fixed_version' => { 'type' => 'string', 'description' => 'Target version name. Must be open.' },
                'parent_issue_id' => { 'type' => 'integer',
-                                      'description' => 'Parent issue id. Requires the manage_subtasks permission.' }
+                                      'description' => 'Parent issue id. Requires the manage_subtasks permission.' },
+          'custom_fields' => {
+            'type' => 'array',
+            'description' => 'Custom field values, each naming the field by id or name. Use ' \
+                             'list_issue_custom_fields to see the fields, required flags and allowed values.',
+            'items' => {
+              'type' => 'object',
+              'properties' => {
+                'id' => { 'type' => 'integer', 'description' => 'Custom field id.' },
+                'name' => { 'type' => 'string', 'description' => 'Custom field name.' },
+                'value' => { 'type' => %w[string array], 'items' => { 'type' => 'string' },
+                             'description' => 'The value, or the label of an allowed value. ' \
+                                              'An array for multi-value fields.' }
+              },
+              'required' => %w[value],
+              'additionalProperties' => false
+            }
+          }
              },
              'required' => %w[project subject],
              'additionalProperties' => false
@@ -81,11 +98,19 @@ module RedmineMcpPlugin
 
         issue.safe_attributes = attributes
         ensure_applied!(issue, attributes)
+        if (entries = arguments['custom_fields'].presence)
+          issue.safe_attributes = { 'custom_field_values' => IssueCustomFields.resolve(issue, user, entries) }
+        end
         raise ToolError, "Could not create issue: #{issue.errors.full_messages.join('; ')}" unless issue.save
 
         { id: issue.id, subject: issue.subject, project_identifier: project.identifier,
           status: issue.status&.name, tracker: issue.tracker&.name, category: issue.category&.name,
-          fixed_version: issue.fixed_version&.name, parent_id: issue.parent_id, created_on: iso(issue.created_on) }
+          fixed_version: issue.fixed_version&.name, parent_id: issue.parent_id, custom_fields: visible_custom_fields(issue), created_on: iso(issue.created_on) }
+      end
+      def visible_custom_fields(issue)
+        issue.visible_custom_field_values(user).map do |value|
+          { id: value.custom_field_id, name: value.custom_field.name, value: value.value }
+        end
       end
     end
   end
