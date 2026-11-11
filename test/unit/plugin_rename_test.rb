@@ -58,15 +58,34 @@ class RedmineMcpPluginRenameTest < ActiveSupport::TestCase
   end
 
   def test_settings_rename_can_be_reversed
-    setting = legacy_setting('enabled' => '1')
+    values = { 'enabled' => '1' }
+    setting = legacy_setting(values)
+    serialized_value = setting.read_attribute(:value)
     @migration.up
     @migration.down
     assert_equal OLD_KEY, setting.reload.name
-    assert_equal({ 'enabled' => '1' }, setting.value)
+    assert_equal serialized_value, setting.read_attribute(:value)
+    assert_equal values, YAML.safe_load(setting.read_attribute(:value))
+    assert_not Setting.exists?(name: NEW_KEY)
   end
+
+  def test_downgrade_does_not_overwrite_legacy_configuration
+    legacy = legacy_setting('enabled' => '1')
+    current = Setting.create!(name: NEW_KEY, value: { 'enabled' => '0' })
+    @migration.down
+
+    assert_equal OLD_KEY, legacy.reload.name
+    assert_equal NEW_KEY, current.reload.name
+    assert_equal({ 'enabled' => '0' }, current.value)
+    assert_equal({ 'enabled' => '1' }, YAML.safe_load(legacy.read_attribute(:value)))
+  end
+
   private
 
   def legacy_setting(values)
-    Setting.new(name: OLD_KEY, value: values).tap { |setting| setting.save!(validate: false) }
+    Setting.new(name: OLD_KEY).tap do |setting|
+      setting.write_attribute(:value, values.to_yaml)
+      setting.save!(validate: false)
+    end
   end
 end
