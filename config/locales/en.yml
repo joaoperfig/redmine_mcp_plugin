@@ -1,5 +1,5 @@
 en:
-  redmine_mcp_plugin:
+  redmine_mcp:
     settings:
       section_endpoint: Endpoint
       section_authentication: Authentication modes

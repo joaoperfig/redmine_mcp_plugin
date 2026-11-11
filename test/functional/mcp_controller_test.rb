@@ -26,8 +26,8 @@ class McpControllerTest < Redmine::ControllerTest
   end
 
   def enable_mcp(overrides = {})
-    Setting.plugin_redmine_mcp_plugin =
-      RedmineMcpPlugin::Settings::DEFAULTS.merge('enabled' => '1').merge(overrides)
+    Setting.plugin_redmine_mcp =
+      RedmineMcp::Settings::DEFAULTS.merge('enabled' => '1').merge(overrides)
     Setting.clear_cache
   end
 
@@ -107,7 +107,7 @@ class McpControllerTest < Redmine::ControllerTest
   def test_malformed_json_is_a_parse_error
     post_mcp '{not json', api_key_headers(User.find(2))
     assert_response :bad_request
-    assert_equal RedmineMcpPlugin::JsonRpc::PARSE_ERROR, json_body['error']['code']
+    assert_equal RedmineMcp::JsonRpc::PARSE_ERROR, json_body['error']['code']
   end
 
   def test_authentication_precedes_json_rpc_parsing
@@ -120,7 +120,7 @@ class McpControllerTest < Redmine::ControllerTest
   def test_batches_are_refused
     post_mcp [{ jsonrpc: '2.0', id: 1, method: 'tools/list' }].to_json, api_key_headers(User.find(2))
     assert_response :bad_request
-    assert_equal RedmineMcpPlugin::JsonRpc::INVALID_REQUEST, json_body['error']['code']
+    assert_equal RedmineMcp::JsonRpc::INVALID_REQUEST, json_body['error']['code']
   end
 
   def test_notification_gets_202_with_no_body
@@ -132,7 +132,7 @@ class McpControllerTest < Redmine::ControllerTest
   def test_unsupported_protocol_version_is_a_400
     post_mcp rpc('tools/list'), api_key_headers(User.find(2)).merge('MCP-Protocol-Version' => '1999-01-01')
     assert_response :bad_request
-    assert_equal RedmineMcpPlugin::JsonRpc::UNSUPPORTED_PROTOCOL_VERSION, json_body['error']['code']
+    assert_equal RedmineMcp::JsonRpc::UNSUPPORTED_PROTOCOL_VERSION, json_body['error']['code']
   end
 
   def test_get_returns_405_because_there_is_no_stream

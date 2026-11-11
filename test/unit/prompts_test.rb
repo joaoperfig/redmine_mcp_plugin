@@ -5,9 +5,9 @@ require File.expand_path('../test_helper', __dir__)
 # Exercises the prompt surface through MCP::Server#handle in isolation, the same
 # transport-free seam the controller uses. These cover listing, rendering, and the
 # free-text embedding behavior at the prompt boundary.
-class RedmineMcpPluginPromptsTest < ActiveSupport::TestCase
+class RedmineMcpPromptsTest < ActiveSupport::TestCase
   def test_registry_exposes_both_prompts
-    names = RedmineMcpPlugin::Prompts.all.map(&:name_value)
+    names = RedmineMcp::Prompts.all.map(&:name_value)
 
     assert_equal %w[generate_changelog qa_ticket_history_report], names
   end
@@ -144,7 +144,7 @@ class RedmineMcpPluginPromptsTest < ActiveSupport::TestCase
   end
 
   def test_initialize_serves_edited_server_instructions
-    Setting.plugin_redmine_mcp_plugin = { 'server_instructions' => 'Custom instructions.' }
+    Setting.plugin_redmine_mcp = { 'server_instructions' => 'Custom instructions.' }
     Setting.clear_cache
 
     assert_equal 'Custom instructions.', server.handle(initialize_request)[:result][:instructions]
@@ -155,7 +155,7 @@ class RedmineMcpPluginPromptsTest < ActiveSupport::TestCase
   private
 
   def with_prompt_text(name, text)
-    Setting.plugin_redmine_mcp_plugin = { "prompt_#{name}" => text }
+    Setting.plugin_redmine_mcp = { "prompt_#{name}" => text }
     Setting.clear_cache
     yield
   ensure
@@ -163,7 +163,7 @@ class RedmineMcpPluginPromptsTest < ActiveSupport::TestCase
   end
 
   def server
-    RedmineMcpPlugin::McpServer.build(prompts: RedmineMcpPlugin::Prompts.all)
+    RedmineMcp::McpServer.build(prompts: RedmineMcp::Prompts.all)
   end
 
   def initialize_request

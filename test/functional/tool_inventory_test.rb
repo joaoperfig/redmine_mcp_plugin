@@ -7,7 +7,7 @@ require File.expand_path('../test_helper', __dir__)
 # enumerations; and the two new non-destructive write tools. Everything runs
 # through a mounted MCP::Server so the public tool boundary is exercised, never
 # the tool bodies directly.
-class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
+class RedmineMcpToolInventoryTest < ActiveSupport::TestCase
   fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles,
            :groups_users, :issues, :issue_statuses, :trackers, :enumerations,
            :enabled_modules, :journals, :journal_details, :versions, :wikis,
@@ -15,7 +15,7 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
            :custom_fields_trackers, :custom_values
 
   def setup
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '1')
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '1')
     Setting.clear_cache
   end
 
@@ -149,11 +149,11 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
   # include_spent_hours requires view_time_entries; the override folds it into
   # the invocation's required permissions.
   def test_get_issue_spent_hours_demands_view_time_entries
-    assert_includes RedmineMcpPlugin::Tools::GetIssue.required_permissions({ 'include_spent_hours' => true }),
+    assert_includes RedmineMcp::Tools::GetIssue.required_permissions({ 'include_spent_hours' => true }),
                     :view_time_entries
-    assert_includes RedmineMcpPlugin::Tools::GetIssue.required_permissions({ 'include_watchers' => true }),
+    assert_includes RedmineMcp::Tools::GetIssue.required_permissions({ 'include_watchers' => true }),
                     :view_issue_watchers
-    assert_not_includes RedmineMcpPlugin::Tools::GetIssue.required_permissions({}), :view_time_entries
+    assert_not_includes RedmineMcp::Tools::GetIssue.required_permissions({}), :view_time_entries
   end
 
   # --- new write tools: discovery and annotations ---------------------------
@@ -166,7 +166,7 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
   end
 
   def test_create_wiki_page_advertises_idempotent_non_destructive_write
-    annotations = RedmineMcpPlugin::Tools::CreateWikiPage.to_h[:annotations]
+    annotations = RedmineMcp::Tools::CreateWikiPage.to_h[:annotations]
 
     assert_not annotations[:readOnlyHint]
     assert_not annotations[:destructiveHint]
@@ -174,7 +174,7 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
   end
 
   def test_create_version_is_a_non_idempotent_non_destructive_write
-    annotations = RedmineMcpPlugin::Tools::CreateVersion.to_h[:annotations]
+    annotations = RedmineMcp::Tools::CreateVersion.to_h[:annotations]
 
     assert_not annotations[:readOnlyHint]
     assert_not annotations[:destructiveHint]
@@ -445,8 +445,8 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
   end
 
   def build_server(user)
-    RedmineMcpPlugin::McpServer.build(
-      tools: RedmineMcpPlugin::Registry.all.select { |tool| tool.available_to?(user, oauth_scopes: nil) },
+    RedmineMcp::McpServer.build(
+      tools: RedmineMcp::Registry.all.select { |tool| tool.available_to?(user, oauth_scopes: nil) },
       server_context: { user: user, auth: { mode: :api_key } }
     )
   end
@@ -462,11 +462,11 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
   end
 
   def with_read_only_off
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '0')
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '0')
     Setting.clear_cache
     yield
   ensure
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '1')
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '1')
     Setting.clear_cache
   end
 end

@@ -2,21 +2,21 @@
 
 require File.expand_path('../test_helper', __dir__)
 
-class RedmineMcpPluginDcrPolicyTest < ActiveSupport::TestCase
-  DCR = RedmineMcpPlugin::DynamicClientRegistration
+class RedmineMcpDcrPolicyTest < ActiveSupport::TestCase
+  DCR = RedmineMcp::DynamicClientRegistration
 
   def teardown
     Setting.clear_cache
   end
 
   def with_settings_hash(hash)
-    Setting.plugin_redmine_mcp_plugin = hash
+    Setting.plugin_redmine_mcp = hash
     Setting.clear_cache
     yield
   end
 
   def all_on(overrides = {})
-    RedmineMcpPlugin::Settings::DEFAULTS
+    RedmineMcp::Settings::DEFAULTS
       .merge('enabled' => '1', 'auth_oauth2' => '1', 'dcr_enabled' => '1')
       .merge(overrides)
   end
@@ -36,7 +36,7 @@ class RedmineMcpPluginDcrPolicyTest < ActiveSupport::TestCase
   end
 
   def test_gate_closed_on_defaults
-    with_settings_hash(RedmineMcpPlugin::Settings::DEFAULTS) { assert_not DCR.gate_open? }
+    with_settings_hash(RedmineMcp::Settings::DEFAULTS) { assert_not DCR.gate_open? }
   end
 
   def test_only_token_endpoint_auth_method_none_is_public

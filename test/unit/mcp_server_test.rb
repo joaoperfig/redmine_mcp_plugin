@@ -7,9 +7,9 @@ require File.expand_path('../test_helper', __dir__)
 # controller or the live request flow. They lock in the runtime configuration
 # this migration slice introduces -- exception reporting and server identity --
 # before any request is flipped onto the SDK.
-class RedmineMcpPluginMcpServerTest < ActiveSupport::TestCase
+class RedmineMcpMcpServerTest < ActiveSupport::TestCase
   def test_build_answers_a_trivial_initialize
-    server = RedmineMcpPlugin::McpServer.build
+    server = RedmineMcp::McpServer.build
 
     response = server.handle(initialize_request)
     result = response[:result]
@@ -20,7 +20,7 @@ class RedmineMcpPluginMcpServerTest < ActiveSupport::TestCase
   end
 
   def test_initialize_serves_the_current_instructions
-    server = RedmineMcpPlugin::McpServer.build
+    server = RedmineMcp::McpServer.build
 
     result = server.handle(initialize_request)[:result]
 
@@ -30,7 +30,7 @@ class RedmineMcpPluginMcpServerTest < ActiveSupport::TestCase
   end
 
   def test_build_answers_a_trivial_ping
-    server = RedmineMcpPlugin::McpServer.build
+    server = RedmineMcp::McpServer.build
 
     response = server.handle(ping_request)
 
@@ -44,7 +44,7 @@ class RedmineMcpPluginMcpServerTest < ActiveSupport::TestCase
   # internals that must not cross the wire (CWE-209).
   def test_unexpected_tool_exception_is_logged_but_not_leaked
     secret = 'leaked-internal-detail-/var/secret'
-    server = RedmineMcpPlugin::McpServer.build
+    server = RedmineMcp::McpServer.build
     server.define_tool(name: 'boom', input_schema: { type: 'object', properties: {} }) do |**|
       raise secret
     end

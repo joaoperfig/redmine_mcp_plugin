@@ -3,7 +3,7 @@
 # Picked up by Redmine's root Gemfile (globs plugins/*/{Gemfile,PluginGemfile}).
 # require: false is load-bearing: the gem's engine binds Doorkeeper's controllers
 # at boot before Redmine sets base_controller, crashing the app. The plugin loads
-# it lazily instead (lib/redmine_mcp_plugin/dynamic_client_registration.rb).
+# it lazily instead (lib/redmine_mcp/dynamic_client_registration.rb).
 gem 'doorkeeper-openid_connect', '~> 2.0', require: false
 
 # Official MCP Ruby SDK. Pinned exactly: the plugin treats the SDK's version

@@ -12,15 +12,15 @@ Repository-wide conventions and host-backed commands remain in
 | Concern | Authoritative seam | Boundary test |
 |---|---|---|
 | Mounted HTTP verbs and endpoint paths | [`config/routes.rb`](../config/routes.rb) | Functional or integration route request |
-| HTTP status, controller gates, Origin, body parsing, tool-call authorization, and pre-SDK JSON-RPC errors | [`McpController`](../app/controllers/mcp_controller.rb), [`ScopeChallenge`](../lib/redmine_mcp_plugin/scope_challenge.rb), and [`JsonRpc`](../lib/redmine_mcp_plugin/json_rpc.rb) | `test/functional/mcp_controller_test.rb` |
-| Credential selection and Redmine user resolution | [`Authenticator`](../lib/redmine_mcp_plugin/authenticator.rb) | Controller test at the authentication boundary |
-| Supported revisions and response metadata | SDK `MCP::Server`, configured by [`McpServer`](../lib/redmine_mcp_plugin/mcp_server.rb), plus controller transport-version validation | `test/unit/mcp_server_test.rb` plus controller coverage when HTTP behavior changes |
-| MCP methods, SDK dispatch, and post-parse JSON-RPC error mapping | SDK `MCP::Server`, configured by [`McpServer`](../lib/redmine_mcp_plugin/mcp_server.rb) | Controller request exercising the public response |
-| Exposed tool set | [`Registry.all`](../lib/redmine_mcp_plugin/registry.rb), filtered in the controller by `Tools::Base.available_to?` | `tools/list` and `tools/call` controller tests |
-| Shared permission, read-only, pagination, and lookup behavior | [`Tools::Base`](../lib/redmine_mcp_plugin/tools/base.rb) | Focused unit test and affected public tool call |
+| HTTP status, controller gates, Origin, body parsing, tool-call authorization, and pre-SDK JSON-RPC errors | [`McpController`](../app/controllers/mcp_controller.rb), [`ScopeChallenge`](../lib/redmine_mcp/scope_challenge.rb), and [`JsonRpc`](../lib/redmine_mcp/json_rpc.rb) | `test/functional/mcp_controller_test.rb` |
+| Credential selection and Redmine user resolution | [`Authenticator`](../lib/redmine_mcp/authenticator.rb) | Controller test at the authentication boundary |
+| Supported revisions and response metadata | SDK `MCP::Server`, configured by [`McpServer`](../lib/redmine_mcp/mcp_server.rb), plus controller transport-version validation | `test/unit/mcp_server_test.rb` plus controller coverage when HTTP behavior changes |
+| MCP methods, SDK dispatch, and post-parse JSON-RPC error mapping | SDK `MCP::Server`, configured by [`McpServer`](../lib/redmine_mcp/mcp_server.rb) | Controller request exercising the public response |
+| Exposed tool set | [`Registry.all`](../lib/redmine_mcp/registry.rb), filtered in the controller by `Tools::Base.available_to?` | `tools/list` and `tools/call` controller tests |
+| Shared permission, read-only, pagination, and lookup behavior | [`Tools::Base`](../lib/redmine_mcp/tools/base.rb) | Focused unit test and affected public tool call |
 | Accepted argument shapes | `MCP::Tool` input schema on each tool | Affected SDK-backed tool call |
-| Redmine queries and result serialization | The class under [`lib/redmine_mcp_plugin/tools/`](../lib/redmine_mcp_plugin/tools/) | Functional test using Redmine fixtures and visibility rules |
-| OAuth discovery and client registration | [`McpMetadataController`](../app/controllers/mcp_metadata_controller.rb) and [`DynamicClientRegistration`](../lib/redmine_mcp_plugin/dynamic_client_registration.rb) | Metadata functional tests and OAuth integration tests |
+| Redmine queries and result serialization | The class under [`lib/redmine_mcp/tools/`](../lib/redmine_mcp/tools/) | Functional test using Redmine fixtures and visibility rules |
+| OAuth discovery and client registration | [`McpMetadataController`](../app/controllers/mcp_metadata_controller.rb) and [`DynamicClientRegistration`](../lib/redmine_mcp/dynamic_client_registration.rb) | Metadata functional tests and OAuth integration tests |
 
 Keep the controller limited to HTTP and security gates plus composition of the
 request-local SDK server. This integration deliberately uses the transport-free
@@ -32,7 +32,7 @@ defining its metadata and implementation in a Zeitwerk-matching
 `Registry.all`; a file under `tools/` alone is not exposed.
 
 Keep scope-correlation policy and insufficient-scope header composition in
-[`ScopeChallenge`](../lib/redmine_mcp_plugin/scope_challenge.rb).
+[`ScopeChallenge`](../lib/redmine_mcp/scope_challenge.rb).
 
 Let the SDK own MCP method dispatch, negotiation, schema handling, and JSON-RPC
 errors after the controller has parsed and admitted a request. Keep plugin
@@ -44,8 +44,8 @@ mapping is recorded in [Error ownership](../ARCHITECTURE.md#error-ownership).
 
 ## Integrate through Redmine
 
-- Read plugin configuration through `RedmineMcpPlugin::Settings`, which normalizes
-  Redmine's `Setting.plugin_redmine_mcp_plugin` values. Declare administrator
+- Read plugin configuration through `RedmineMcp::Settings`, which normalizes
+  Redmine's `Setting.plugin_redmine_mcp` values. Declare administrator
   defaults in `Settings::DEFAULTS` and keep the settings partial consistent with
   them.
 - Resolve identities and permissions with Redmine APIs. OAuth tokens come from

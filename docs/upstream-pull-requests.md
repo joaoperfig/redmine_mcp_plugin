@@ -1,6 +1,6 @@
 # Upstream pull request integration
 
-All open pull requests in `joaoperfig/redmine_mcp_plugin` as of November 11, 2026
+All open pull requests in `joaoperfig/redmine_mcp` as of November 11, 2026
 are included in this fork. Upstream `main` at `2375a2d` was merged first to provide
 the current MCP SDK, OAuth, resource, and prompt implementation.
 
@@ -26,7 +26,7 @@ and a dedicated SQLite database:
 
 ```sh
 RAILS_ENV=test bundle exec rake db:create db:migrate redmine:plugins:migrate
-RAILS_ENV=test bundle exec ruby bin/rails test plugins/redmine_mcp_plugin/test
+RAILS_ENV=test bundle exec ruby bin/rails test plugins/redmine_mcp/test
 ```
 
 The plugin migration succeeded. The complete suite passed with 228 tests,

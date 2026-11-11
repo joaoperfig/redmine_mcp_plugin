@@ -1,4 +1,4 @@
-# Redmine MCP Server
+# Redmine MCP
 
 Connect MCP clients to the projects, issues, wikis, and users already managed by
 Redmine. The plugin runs inside the Redmine process and exposes a Streamable HTTP
@@ -15,25 +15,32 @@ read-only mode.
 ### 1. Install the plugin
 
 Redmine 6.1 or later is required. From the root of a compatible Redmine checkout,
-place this repository at `plugins/redmine_mcp_plugin`, install dependencies, and
+place this repository at `plugins/redmine_mcp`, install dependencies, and
 run the required plugin migration:
 
 ```sh
-git clone https://github.com/serenysoft/redmine_mcp_plugin.git plugins/redmine_mcp_plugin
+git clone https://github.com/serenysoft/redmine_mcp_plugin.git plugins/redmine_mcp
 bundle install
-bin/rails redmine:plugins:migrate NAME=redmine_mcp_plugin RAILS_ENV=production
+bin/rails redmine:plugins:migrate NAME=redmine_mcp RAILS_ENV=production
 ```
 
 Restart the Redmine application using the procedure for your deployment. Redmine
 supplies the supported Ruby, Rails, database, and application-server environment;
 this plugin is not a standalone Rails application.
 
+When upgrading from `redmine_mcp_plugin`, rename its installation directory to
+`plugins/redmine_mcp` before running the migration with `NAME=redmine_mcp`. Keep
+only that directory installed. The migration transfers existing plugin settings
+to the new identifier without overwriting settings already saved under it.
+Previous migration records remain in the database; the guarded OAuth migration
+can safely run again under the new plugin identifier. The MCP endpoint stays `/mcp`.
+
 ### 2. Enable and configure the endpoint
 
 For the shortest first connection, use a Redmine API key:
 
 1. In **Administration > Settings > API**, enable the REST web service.
-2. In **Administration > Plugins > Redmine MCP Server > Configure**, enable the
+2. In **Administration > Plugins > Redmine MCP > Configure**, enable the
    MCP endpoint. Leave **REST API key** and **Read-only mode** enabled.
 3. Save the settings, then copy an active Redmine user's API access key from that
    user's **My account** page.
@@ -88,7 +95,7 @@ other tools with `tools/list`.
 ## Authentication
 
 Authentication modes are independently configurable under **Administration >
-Plugins > Redmine MCP Server**.
+Plugins > Redmine MCP**.
 
 | Mode | Default | Client credential and access |
 |---|---:|---|
@@ -189,7 +196,7 @@ name independently enforces the caller's permissions and record visibility.
 
 ### Editing the prompts and tool descriptions
 
-**Administration > Plugins > Redmine MCP Server > Configure** has two tabs of
+**Administration > Plugins > Redmine MCP > Configure** has two tabs of
 model-facing text:
 
 * **Prompts**: the text of both prompts, and the server instructions every
@@ -250,15 +257,15 @@ administrator.
 
 ## Development
 
-This repository must be developed and tested as `plugins/redmine_mcp_plugin`
+This repository must be developed and tested as `plugins/redmine_mcp`
 inside a compatible Redmine checkout. Run Rails, Rake, Bundler, migration, and
 test commands from the Redmine root:
 
 ```sh
 bundle install
-bin/rails redmine:plugins:migrate NAME=redmine_mcp_plugin RAILS_ENV=development
-bin/rails redmine:plugins:test NAME=redmine_mcp_plugin RAILS_ENV=test
-RAILS_ENV=test bin/rails test plugins/redmine_mcp_plugin/test/unit/mcp_server_test.rb
+bin/rails redmine:plugins:migrate NAME=redmine_mcp RAILS_ENV=development
+bin/rails redmine:plugins:test NAME=redmine_mcp RAILS_ENV=test
+RAILS_ENV=test bin/rails test plugins/redmine_mcp/test/unit/mcp_server_test.rb
 ```
 
 See the [coding agent guide](AGENTS.md) for repository conventions and the

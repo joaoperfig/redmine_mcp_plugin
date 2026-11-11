@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# redmine_mcp_plugin - a Model Context Protocol server that runs inside Redmine
+# redmine_mcp - a Model Context Protocol server that runs inside Redmine
 # Copyright (C) 2026  Joao Figueira
 #
 # This program is free software; you can redistribute it and/or
@@ -17,18 +17,18 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-Redmine::Plugin.register :redmine_mcp_plugin do
-  name        'Redmine MCP Server'
+Redmine::Plugin.register :redmine_mcp do
+  name        'Redmine MCP'
   author      'Joao Figueira, Arthur Santos'
   description 'Exposes Redmine over the Model Context Protocol, in-process, ' \
               'using Redmine\'s own authentication and permission system.'
-  version     RedmineMcpPlugin::VERSION
-  url         'https://github.com/joaoperfig/redmine_mcp_plugin'
-  author_url  'https://github.com/joaoperfig/redmine_mcp_plugin/graphs/contributors'
+  version     RedmineMcp::VERSION
+  url         'https://github.com/serenysoft/redmine_mcp_plugin'
+  author_url  'https://github.com/serenysoft/redmine_mcp_plugin/graphs/contributors'
 
   # Redmine 6.1 is the minimum release with the required OAuth2 support.
   requires_redmine version_or_higher: '6.1.0'
 
-  settings default: RedmineMcpPlugin::Settings::DEFAULTS,
-           partial: 'settings/redmine_mcp_plugin_settings'
+  settings default: RedmineMcp::Settings::DEFAULTS,
+           partial: 'settings/redmine_mcp_settings'
 end

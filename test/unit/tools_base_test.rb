@@ -6,7 +6,7 @@ require File.expand_path('../test_helper', __dir__)
 # authorization locks, the argument/response plumbing of the class entry point,
 # the derived annotations, and a real converted read tool running end to end
 # through a mounted MCP::Server. These never touch the controller.
-class RedmineMcpPluginToolsBaseTest < ActiveSupport::TestCase
+class RedmineMcpToolsBaseTest < ActiveSupport::TestCase
   fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles,
            :issues, :issue_statuses, :trackers, :enumerations, :enabled_modules,
            :journals
@@ -28,7 +28,7 @@ class RedmineMcpPluginToolsBaseTest < ActiveSupport::TestCase
     end
   end
 
-  class ReadProbe < RedmineMcpPlugin::Tools::Base
+  class ReadProbe < RedmineMcp::Tools::Base
     tool_name 'read_probe'
     title 'Read probe'
     description 'test'
@@ -37,7 +37,7 @@ class RedmineMcpPluginToolsBaseTest < ActiveSupport::TestCase
     def perform(_arguments) = { ok: true }
   end
 
-  class WriteProbe < RedmineMcpPlugin::Tools::Base
+  class WriteProbe < RedmineMcp::Tools::Base
     tool_name 'write_probe'
     title 'Write probe'
     description 'test'
@@ -48,7 +48,7 @@ class RedmineMcpPluginToolsBaseTest < ActiveSupport::TestCase
     def perform(_arguments) = { created: true }
   end
 
-  class PermProbe < RedmineMcpPlugin::Tools::Base
+  class PermProbe < RedmineMcp::Tools::Base
     tool_name 'perm_probe'
     title 'Perm probe'
     description 'test'
@@ -58,7 +58,7 @@ class RedmineMcpPluginToolsBaseTest < ActiveSupport::TestCase
     def perform(_arguments) = { ok: true }
   end
 
-  class ConditionalPermProbe < RedmineMcpPlugin::Tools::Base
+  class ConditionalPermProbe < RedmineMcp::Tools::Base
     tool_name 'conditional_perm_probe'
     title 'Conditional permission probe'
     description 'test'
@@ -72,27 +72,27 @@ class RedmineMcpPluginToolsBaseTest < ActiveSupport::TestCase
     def perform(_arguments) = { ok: true }
   end
 
-  class ErrorProbe < RedmineMcpPlugin::Tools::Base
+  class ErrorProbe < RedmineMcp::Tools::Base
     tool_name 'error_probe'
     title 'Error probe'
     description 'test'
     input_schema({ 'type' => 'object', 'additionalProperties' => false })
 
-    def perform(_arguments) = raise(RedmineMcpPlugin::ToolError, 'nothing matched')
+    def perform(_arguments) = raise(RedmineMcp::ToolError, 'nothing matched')
   end
 
-  class PermissionErrorProbe < RedmineMcpPlugin::Tools::Base
+  class PermissionErrorProbe < RedmineMcp::Tools::Base
     tool_name 'permission_error_probe'
     title 'Permission error probe'
     description 'test'
     input_schema({ 'type' => 'object', 'additionalProperties' => false })
 
-    def perform(_arguments) = raise(RedmineMcpPlugin::PermissionError, 'not permitted')
+    def perform(_arguments) = raise(RedmineMcp::PermissionError, 'not permitted')
   end
 
   # Exposes the protected pagination helpers so they can be asserted on the new
   # base directly, now that they no longer live on the legacy Tool.
-  class HelperProbe < RedmineMcpPlugin::Tools::Base
+  class HelperProbe < RedmineMcp::Tools::Base
     tool_name 'helper_probe'
     title 'Helper probe'
     description 'test'
@@ -106,7 +106,7 @@ class RedmineMcpPluginToolsBaseTest < ActiveSupport::TestCase
   end
 
   def setup
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '1')
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '1')
     Setting.clear_cache
   end
 
@@ -141,14 +141,14 @@ class RedmineMcpPluginToolsBaseTest < ActiveSupport::TestCase
     result = WriteProbe.call(server_context: { user: FakeUser.new(allowed: true) }).to_h
 
     assert result[:isError]
-    assert_equal RedmineMcpPlugin::Tools::Base::UNAVAILABLE, result[:content].first[:text]
+    assert_equal RedmineMcp::Tools::Base::UNAVAILABLE, result[:content].first[:text]
   end
 
   def test_permission_denied_execution_is_refused
     result = PermProbe.call(server_context: { user: FakeUser.new(allowed: false) }).to_h
 
     assert result[:isError]
-    assert_equal RedmineMcpPlugin::Tools::Base::UNAVAILABLE, result[:content].first[:text]
+    assert_equal RedmineMcp::Tools::Base::UNAVAILABLE, result[:content].first[:text]
   end
 
   def test_argument_dependent_permission_is_rechecked_by_the_execution_backstop
@@ -157,7 +157,7 @@ class RedmineMcpPluginToolsBaseTest < ActiveSupport::TestCase
     result = ConditionalPermProbe.call(server_context: { user: user }, elevated: true).to_h
 
     assert result[:isError]
-    assert_equal RedmineMcpPlugin::Tools::Base::UNAVAILABLE, result[:content].first[:text]
+    assert_equal RedmineMcp::Tools::Base::UNAVAILABLE, result[:content].first[:text]
   end
 
   # The refusal message must not reveal which lock tripped: read-only and
@@ -279,8 +279,8 @@ class RedmineMcpPluginToolsBaseTest < ActiveSupport::TestCase
   private
 
   def build_server(user)
-    RedmineMcpPlugin::McpServer.build(
-      tools: [RedmineMcpPlugin::Tools::GetIssue],
+    RedmineMcp::McpServer.build(
+      tools: [RedmineMcp::Tools::GetIssue],
       server_context: { user: user, auth: { mode: :api_key } }
     )
   end
@@ -294,11 +294,11 @@ class RedmineMcpPluginToolsBaseTest < ActiveSupport::TestCase
   end
 
   def with_read_only_off
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '0')
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '0')
     Setting.clear_cache
     yield
   ensure
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '1')
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '1')
     Setting.clear_cache
   end
 end

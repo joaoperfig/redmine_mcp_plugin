@@ -38,7 +38,7 @@ jobs:
       - name: Check out plugin
         uses: actions/checkout@v6
         with:
-          path: plugins/redmine_mcp_plugin
+          path: plugins/redmine_mcp
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -62,4 +62,4 @@ jobs:
           bundle exec rake redmine:plugins:migrate
 
       - name: Run plugin tests
-        run: bundle exec rake redmine:plugins:test NAME=redmine_mcp_plugin
+        run: bundle exec rake redmine:plugins:test NAME=redmine_mcp

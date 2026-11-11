@@ -32,8 +32,8 @@ class McpResourcesControllerTest < Redmine::ControllerTest
   end
 
   def enable_mcp(overrides = {})
-    Setting.plugin_redmine_mcp_plugin =
-      RedmineMcpPlugin::Settings::DEFAULTS.merge('enabled' => '1').merge(overrides)
+    Setting.plugin_redmine_mcp =
+      RedmineMcp::Settings::DEFAULTS.merge('enabled' => '1').merge(overrides)
     Setting.clear_cache
   end
 
@@ -92,7 +92,7 @@ class McpResourcesControllerTest < Redmine::ControllerTest
     post_mcp rpc('resources/templates/list'), api_key_headers(User.find(2))
 
     templates = json_body['result']['resourceTemplates']
-    assert_equal [RedmineMcpPlugin::Resources::ATTACHMENT_URI_TEMPLATE], templates.pluck('uriTemplate')
+    assert_equal [RedmineMcp::Resources::ATTACHMENT_URI_TEMPLATE], templates.pluck('uriTemplate')
   end
 
   def test_resources_read_returns_a_typed_non_text_attachment_as_a_blob
