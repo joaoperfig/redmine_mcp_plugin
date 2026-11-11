@@ -21,8 +21,8 @@ class McpMetadataController < ApplicationController
       authorization_servers: [root_url_without_trailing_slash],
       scopes_supported: bootstrap_scopes,
       bearer_methods_supported: %w[header],
-      resource_name: 'Redmine MCP Server',
-      resource_documentation: 'https://github.com/joaoperfig/redmine_mcp_plugin'
+      resource_name: 'Redmine MCP',
+      resource_documentation: 'https://github.com/serenysoft/redmine_mcp_plugin'
     }
   end
 
@@ -37,7 +37,7 @@ class McpMetadataController < ApplicationController
       token_endpoint_auth_methods_supported: %w[client_secret_basic client_secret_post],
       service_documentation: 'https://www.redmine.org/projects/redmine/wiki/Rest_api#OAuth2'
     }
-    if RedmineMcpPlugin::Settings.dcr_enabled?
+    if RedmineMcp::Settings.dcr_enabled?
       payload[:registration_endpoint] = "#{root_url_without_trailing_slash}/oauth/registration"
     end
     methods = code_challenge_methods
@@ -49,7 +49,7 @@ class McpMetadataController < ApplicationController
 
   # Disabled OAuth2 endpoints must not advertise unusable discovery metadata.
   def require_oauth2_discoverable
-    return if RedmineMcpPlugin::Settings.enabled? && RedmineMcpPlugin::Settings.oauth2_auth?
+    return if RedmineMcp::Settings.enabled? && RedmineMcp::Settings.oauth2_auth?
 
     render json: { error: 'Not found' }, status: :not_found
   end
@@ -68,12 +68,12 @@ class McpMetadataController < ApplicationController
     scopes = doorkeeper_config.scopes.to_a.map(&:to_s)
     scopes.any? ? scopes : bootstrap_scopes
   rescue StandardError => e
-    Rails.logger.warn("[redmine_mcp_plugin] could not enumerate OAuth2 scopes: #{e.class}: #{e.message}")
+    Rails.logger.warn("[redmine_mcp] could not enumerate OAuth2 scopes: #{e.class}: #{e.message}")
     bootstrap_scopes
   end
 
   def bootstrap_scopes
-    RedmineMcpPlugin::OAUTH_BOOTSTRAP_SCOPES
+    RedmineMcp::OAUTH_BOOTSTRAP_SCOPES
   end
 
   # Doorkeeper 5.x installations expose either .config or .configuration.
@@ -98,7 +98,7 @@ class McpMetadataController < ApplicationController
     # MCP requires S256; advertising plain would offer a forbidden weaker mode.
     supported & %w[S256]
   rescue StandardError => e
-    Rails.logger.warn("[redmine_mcp_plugin] could not determine PKCE support: #{e.class}: #{e.message}")
+    Rails.logger.warn("[redmine_mcp] could not determine PKCE support: #{e.class}: #{e.message}")
     []
   end
 end

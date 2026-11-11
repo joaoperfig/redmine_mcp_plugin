@@ -19,8 +19,8 @@ class OauthAuthorizationFlowTest < Redmine::IntegrationTest
   end
 
   def enable_dcr(overrides = {})
-    Setting.plugin_redmine_mcp_plugin =
-      RedmineMcpPlugin::Settings::DEFAULTS
+    Setting.plugin_redmine_mcp =
+      RedmineMcp::Settings::DEFAULTS
         .merge('enabled' => '1', 'auth_oauth2' => '1', 'dcr_enabled' => '1')
         .merge(overrides)
     Setting.clear_cache

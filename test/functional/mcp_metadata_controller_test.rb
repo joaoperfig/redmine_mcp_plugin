@@ -6,8 +6,8 @@ class McpMetadataControllerTest < Redmine::ControllerTest
   tests McpMetadataController
 
   def setup
-    Setting.plugin_redmine_mcp_plugin =
-      RedmineMcpPlugin::Settings::DEFAULTS.merge(
+    Setting.plugin_redmine_mcp =
+      RedmineMcp::Settings::DEFAULTS.merge(
         'enabled' => '1',
         'auth_oauth2' => '1',
         'dcr_enabled' => '1'
@@ -54,8 +54,8 @@ class McpMetadataControllerTest < Redmine::ControllerTest
   end
 
   def test_authorization_server_omits_registration_when_dcr_is_disabled
-    Setting.plugin_redmine_mcp_plugin =
-      RedmineMcpPlugin::Settings::DEFAULTS.merge('enabled' => '1', 'auth_oauth2' => '1', 'dcr_enabled' => '0')
+    Setting.plugin_redmine_mcp =
+      RedmineMcp::Settings::DEFAULTS.merge('enabled' => '1', 'auth_oauth2' => '1', 'dcr_enabled' => '0')
     Setting.clear_cache
 
     get :authorization_server

@@ -15,8 +15,8 @@ RedmineApp::Application.routes.draw do
 
   # Expose only RFC 7591 registration from doorkeeper-openid_connect; the
   # module owns lazy loading and per-request policy.
-  if RedmineMcpPlugin::DynamicClientRegistration.available?
-    RedmineMcpPlugin::DynamicClientRegistration.configure!
+  if RedmineMcp::DynamicClientRegistration.available?
+    RedmineMcp::DynamicClientRegistration.configure!
     use_doorkeeper_openid_connect do
       skip_controllers :userinfo, :discovery
     end

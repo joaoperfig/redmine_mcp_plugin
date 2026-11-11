@@ -6,8 +6,8 @@ require File.expand_path('../test_helper', __dir__)
 # pin the invariants ticket 07 settled: the map is exhaustive and tier-consistent,
 # correlations are one-hop and same-tier, challenges emit the hard-plus-correlated
 # set in source-first order, and an undeclared or tier-crossing scope fails closed.
-class RedmineMcpPluginScopeChallengeTest < ActiveSupport::TestCase
-  Challenge = RedmineMcpPlugin::ScopeChallenge
+class RedmineMcpScopeChallengeTest < ActiveSupport::TestCase
+  Challenge = RedmineMcp::ScopeChallenge
 
   def test_every_correlation_key_and_member_is_a_declared_scope
     Challenge::CORRELATED_SCOPES.each do |source, members|

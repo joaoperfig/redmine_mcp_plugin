@@ -2,15 +2,15 @@
 
 require File.expand_path('../test_helper', __dir__)
 
-class RedmineMcpPluginSettingsTest < ActiveSupport::TestCase
-  S = RedmineMcpPlugin::Settings
+class RedmineMcpSettingsTest < ActiveSupport::TestCase
+  S = RedmineMcp::Settings
 
   def teardown
     Setting.clear_cache
   end
 
   def with_settings_hash(hash)
-    Setting.plugin_redmine_mcp_plugin = hash
+    Setting.plugin_redmine_mcp = hash
     Setting.clear_cache
     yield
   end
@@ -27,7 +27,7 @@ class RedmineMcpPluginSettingsTest < ActiveSupport::TestCase
   end
 
   def test_server_instructions_default_and_override
-    with_settings_hash({}) { assert_equal RedmineMcpPlugin::McpServer::INSTRUCTIONS, S.server_instructions }
+    with_settings_hash({}) { assert_equal RedmineMcp::McpServer::INSTRUCTIONS, S.server_instructions }
     with_settings_hash('server_instructions' => 'Custom') { assert_equal 'Custom', S.server_instructions }
   end
 

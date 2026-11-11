@@ -7,7 +7,7 @@ when a repository-wide agent rule changes.
 
 ## Repository context
 
-`redmine_mcp_plugin` is an in-process Model Context Protocol server for Redmine. It
+`redmine_mcp` is an in-process Model Context Protocol server for Redmine. It
 adds an HTTP MCP endpoint and uses the host application's authentication,
 authorization, models, settings, routes, database, and test fixtures. It is not a
 standalone Rails application or an independently bootable gem.
@@ -23,7 +23,7 @@ The repository is organized as follows:
   view.
 - `config/` contains host-mounted routes and translations.
 - `db/migrate/` contains plugin migrations executed against the Redmine database.
-- `lib/redmine_mcp_plugin/` contains authentication, SDK server composition,
+- `lib/redmine_mcp/` contains authentication, SDK server composition,
   protocol-boundary helpers, settings, and SDK-backed tool implementations.
 - `test/` contains unit, functional, and integration tests that use Redmine's test
   application and database.
@@ -42,7 +42,7 @@ instead of editing or committing generated output.
 
 ## Work in a Redmine host checkout
 
-Install this repository at `plugins/redmine_mcp_plugin` inside a compatible Redmine
+Install this repository at `plugins/redmine_mcp` inside a compatible Redmine
 checkout. Run Bundler, Rails, Rake, migration, and test commands from the **Redmine
 root**, not from this plugin directory. In the examples below, the current directory
 is the Redmine root:
@@ -50,21 +50,21 @@ is the Redmine root:
 ```sh
 bundle install
 bin/rails server
-bin/rails redmine:plugins:migrate NAME=redmine_mcp_plugin RAILS_ENV=development
-bin/rails redmine:plugins:test NAME=redmine_mcp_plugin RAILS_ENV=test
+bin/rails redmine:plugins:migrate NAME=redmine_mcp RAILS_ENV=development
+bin/rails redmine:plugins:test NAME=redmine_mcp RAILS_ENV=test
 ```
 
 Run a focused test through the host test runner, for example:
 
 ```sh
-RAILS_ENV=test bin/rails test plugins/redmine_mcp_plugin/test/unit/mcp_server_test.rb
+RAILS_ENV=test bin/rails test plugins/redmine_mcp/test/unit/mcp_server_test.rb
 ```
 
 To reverse all migrations owned by this plugin in a disposable environment, run
 the host task explicitly with `VERSION=0`:
 
 ```sh
-bin/rails redmine:plugins:migrate NAME=redmine_mcp_plugin VERSION=0 RAILS_ENV=test
+bin/rails redmine:plugins:migrate NAME=redmine_mcp VERSION=0 RAILS_ENV=test
 ```
 
 Do not add a plugin-local Rails boot path, database configuration, or standalone

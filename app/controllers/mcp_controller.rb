@@ -3,6 +3,8 @@
 # Serves the MCP Streamable HTTP endpoint. This controller and Authenticator own
 # the security boundary; the MCP SDK handles protocol messages.
 class McpController < ApplicationController
+  rescue_from ActionDispatch::Http::Parameters::ParseError, with: :render_json_parse_error
+
   # Token clients cannot provide Rails CSRF tokens. Cookie authentication
   # remains protected by the mandatory Origin check in #verify_origin.
   skip_before_action :verify_authenticity_token
@@ -23,13 +25,13 @@ class McpController < ApplicationController
     begin
       message = JSON.parse(body)
     rescue JSON::ParserError
-      return render_rpc(RedmineMcpPlugin::JsonRpc.error(nil, RedmineMcpPlugin::JsonRpc::PARSE_ERROR, 'Parse error'), :bad_request)
+      return render_json_parse_error
     end
 
     # Supported MCP revisions forbid batches; never process only part of one.
     if message.is_a?(Array)
       return render_rpc(
-        RedmineMcpPlugin::JsonRpc.error(nil, RedmineMcpPlugin::JsonRpc::INVALID_REQUEST,
+        RedmineMcp::JsonRpc.error(nil, RedmineMcp::JsonRpc::INVALID_REQUEST,
                                         'JSON-RPC batching is not supported by this protocol version'),
         :bad_request
       )
@@ -37,14 +39,14 @@ class McpController < ApplicationController
 
     unless message.is_a?(Hash) && message['method'].present?
       return render_rpc(
-        RedmineMcpPlugin::JsonRpc.error(nil, RedmineMcpPlugin::JsonRpc::INVALID_REQUEST, 'Invalid Request'),
+        RedmineMcp::JsonRpc.error(nil, RedmineMcp::JsonRpc::INVALID_REQUEST, 'Invalid Request'),
         :bad_request
       )
     end
 
     unless message['jsonrpc'] == '2.0'
       return render_rpc(
-        RedmineMcpPlugin::JsonRpc.error(message['id'], RedmineMcpPlugin::JsonRpc::INVALID_REQUEST,
+        RedmineMcp::JsonRpc.error(message['id'], RedmineMcp::JsonRpc::INVALID_REQUEST,
                                         'Invalid Request: jsonrpc must be "2.0"'),
         :bad_request
       )
@@ -52,7 +54,7 @@ class McpController < ApplicationController
 
     # A notification gets 202 Accepted with no body, per the transport spec.
     # notifications/initialized from an older client lands here.
-    if RedmineMcpPlugin::JsonRpc.notification?(message)
+    if RedmineMcp::JsonRpc.notification?(message)
       return head :accepted
     end
 
@@ -61,13 +63,13 @@ class McpController < ApplicationController
     # Prompt argument completion is neither advertised nor handled, so no such
     # request can reach data access or require a read-tier OAuth step-up.
 
-    tools = RedmineMcpPlugin::Registry.all.select do |tool|
+    tools = RedmineMcp::Registry.all.select do |tool|
       tool.available_to?(User.current, oauth_scopes: @mcp_auth[:scopes])
     end
-    server = RedmineMcpPlugin::McpServer.build(
+    server = RedmineMcp::McpServer.build(
       tools: tools,
-      prompts: RedmineMcpPlugin::Prompts.all,
-      resource_templates: RedmineMcpPlugin::Resources.templates,
+      prompts: RedmineMcp::Prompts.all,
+      resource_templates: RedmineMcp::Resources.templates,
       server_context: { user: User.current, auth: @mcp_auth }
     )
     render_rpc(server.handle(message.deep_symbolize_keys), :ok)
@@ -87,10 +89,10 @@ class McpController < ApplicationController
   private
 
   def require_endpoint_enabled
-    return if RedmineMcpPlugin::Settings.enabled?
+    return if RedmineMcp::Settings.enabled?
 
     render json: { error: 'The MCP endpoint is disabled. An administrator can enable it under ' \
-                          'Administration > Plugins > Redmine MCP Server.' },
+                          'Administration > Plugins > Redmine MCP.' },
            status: :forbidden
   end
 
@@ -103,22 +105,22 @@ class McpController < ApplicationController
     origin = request.headers['Origin'].presence
     return if origin.nil?
     return if origin == request.base_url
-    return if RedmineMcpPlugin::Settings.allowed_origins.include?(origin)
+    return if RedmineMcp::Settings.allowed_origins.include?(origin)
 
     render json: { error: 'Origin not allowed' }, status: :forbidden
   end
 
   def authenticate_mcp_request
-    result = RedmineMcpPlugin::Authenticator.new(request, self).authenticate
+    result = RedmineMcp::Authenticator.new(request, self).authenticate
 
     unless result.ok?
-      if RedmineMcpPlugin::Settings.oauth2_auth? && result.status == :unauthorized
+      if RedmineMcp::Settings.oauth2_auth? && result.status == :unauthorized
         # RFC 9728 resource metadata tells the client which authorization server
         # can issue the required bearer token.
         response.set_header(
           'WWW-Authenticate',
           "Bearer realm=\"Redmine\", resource_metadata=\"#{oauth_protected_resource_url}\", " \
-          "scope=\"#{RedmineMcpPlugin::OAUTH_BOOTSTRAP_SCOPES.join(' ')}\""
+          "scope=\"#{RedmineMcp::OAUTH_BOOTSTRAP_SCOPES.join(' ')}\""
         )
       end
       return render json: { error: result.error }, status: result.status
@@ -130,12 +132,12 @@ class McpController < ApplicationController
 
   def verify_protocol_version
     header = request.headers['MCP-Protocol-Version'].presence
-    return if header.nil? || RedmineMcpPlugin::SUPPORTED_PROTOCOL_VERSIONS.include?(header)
+    return if header.nil? || RedmineMcp::SUPPORTED_PROTOCOL_VERSIONS.include?(header)
 
-    render json: RedmineMcpPlugin::JsonRpc.error(
-      nil, RedmineMcpPlugin::JsonRpc::UNSUPPORTED_PROTOCOL_VERSION,
+    render json: RedmineMcp::JsonRpc.error(
+      nil, RedmineMcp::JsonRpc::UNSUPPORTED_PROTOCOL_VERSION,
       "Unsupported MCP protocol version: #{header}",
-      { supported: RedmineMcpPlugin::SUPPORTED_PROTOCOL_VERSIONS }
+      { supported: RedmineMcp::SUPPORTED_PROTOCOL_VERSIONS }
     ), status: :bad_request
   end
 
@@ -143,12 +145,12 @@ class McpController < ApplicationController
     tool = registered_called_tool(message)
     return true if tool.nil?
 
-    if tool.write? && RedmineMcpPlugin::Settings.read_only?
+    if tool.write? && RedmineMcp::Settings.read_only?
       head :forbidden
       return false
     end
 
-    permissions = tool.required_permissions(called_tool_arguments(message))
+    permissions = tool.required_permissions(called_tool_arguments(message), user: User.current)
     return true if permissions.empty?
 
     unless tool.role_allows?(
@@ -180,7 +182,7 @@ class McpController < ApplicationController
                             end
     response.set_header(
       'WWW-Authenticate',
-      RedmineMcpPlugin::ScopeChallenge.header(
+      RedmineMcp::ScopeChallenge.header(
         permissions: challenge_permissions,
         write: tool.write?,
         resource_metadata: oauth_protected_resource_url
@@ -201,13 +203,13 @@ class McpController < ApplicationController
   def authorize_resource_read(message)
     return true unless message['method'] == 'resources/read'
     return true unless @mcp_auth[:mode] == :oauth2
-    return true if User.current.allowed_to?(RedmineMcpPlugin::Resources::READ_PERMISSION, nil, global: true)
-    return true unless RedmineMcpPlugin::Resources.role_can_read?(User.current)
+    return true if User.current.allowed_to?(RedmineMcp::Resources::READ_PERMISSION, nil, global: true)
+    return true unless RedmineMcp::Resources.role_can_read?(User.current)
 
     response.set_header(
       'WWW-Authenticate',
-      RedmineMcpPlugin::ScopeChallenge.header(
-        permissions: [RedmineMcpPlugin::Resources::READ_PERMISSION],
+      RedmineMcp::ScopeChallenge.header(
+        permissions: [RedmineMcp::Resources::READ_PERMISSION],
         write: false,
         resource_metadata: oauth_protected_resource_url
       )
@@ -222,7 +224,7 @@ class McpController < ApplicationController
     params = message['params']
     return unless params.is_a?(Hash)
 
-    RedmineMcpPlugin::Registry.all.find { |tool| tool.tool_name == params['name'] }
+    RedmineMcp::Registry.all.find { |tool| tool.tool_name == params['name'] }
   end
 
   def called_tool_arguments(message)
@@ -237,5 +239,18 @@ class McpController < ApplicationController
 
   def render_rpc(payload, status)
     render json: payload, status: status, content_type: 'application/json'
+  end
+
+  def render_json_parse_error
+    # Avoid Rails rendering here: on Redmine 6.1 it may touch `params`
+    # again while resolving the layout, re-raising the parse error.
+    payload = RedmineMcp::JsonRpc.error(
+      nil,
+      RedmineMcp::JsonRpc::PARSE_ERROR,
+      'Parse error'
+    )
+    response.status = :bad_request
+    response.content_type = 'application/json'
+    self.response_body = payload.to_json
   end
 end

@@ -21,8 +21,8 @@ class McpPromptsControllerTest < Redmine::ControllerTest
   end
 
   def enable_mcp(overrides = {})
-    Setting.plugin_redmine_mcp_plugin =
-      RedmineMcpPlugin::Settings::DEFAULTS.merge('enabled' => '1').merge(overrides)
+    Setting.plugin_redmine_mcp =
+      RedmineMcp::Settings::DEFAULTS.merge('enabled' => '1').merge(overrides)
     Setting.clear_cache
   end
 

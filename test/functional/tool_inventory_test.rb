@@ -7,14 +7,15 @@ require File.expand_path('../test_helper', __dir__)
 # enumerations; and the two new non-destructive write tools. Everything runs
 # through a mounted MCP::Server so the public tool boundary is exercised, never
 # the tool bodies directly.
-class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
+class RedmineMcpToolInventoryTest < ActiveSupport::TestCase
   fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles,
            :groups_users, :issues, :issue_statuses, :trackers, :enumerations,
            :enabled_modules, :journals, :journal_details, :versions, :wikis,
-           :wiki_pages, :wiki_contents
+           :wiki_pages, :wiki_contents, :custom_fields, :custom_fields_projects,
+           :custom_fields_trackers, :custom_values
 
   def setup
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '1')
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '1')
     Setting.clear_cache
   end
 
@@ -148,11 +149,11 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
   # include_spent_hours requires view_time_entries; the override folds it into
   # the invocation's required permissions.
   def test_get_issue_spent_hours_demands_view_time_entries
-    assert_includes RedmineMcpPlugin::Tools::GetIssue.required_permissions('include_spent_hours' => true),
+    assert_includes RedmineMcp::Tools::GetIssue.required_permissions({ 'include_spent_hours' => true }),
                     :view_time_entries
-    assert_includes RedmineMcpPlugin::Tools::GetIssue.required_permissions('include_watchers' => true),
+    assert_includes RedmineMcp::Tools::GetIssue.required_permissions({ 'include_watchers' => true }),
                     :view_issue_watchers
-    assert_not_includes RedmineMcpPlugin::Tools::GetIssue.required_permissions({}), :view_time_entries
+    assert_not_includes RedmineMcp::Tools::GetIssue.required_permissions({}), :view_time_entries
   end
 
   # --- new write tools: discovery and annotations ---------------------------
@@ -165,7 +166,7 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
   end
 
   def test_create_wiki_page_advertises_idempotent_non_destructive_write
-    annotations = RedmineMcpPlugin::Tools::CreateWikiPage.to_h[:annotations]
+    annotations = RedmineMcp::Tools::CreateWikiPage.to_h[:annotations]
 
     assert_not annotations[:readOnlyHint]
     assert_not annotations[:destructiveHint]
@@ -173,7 +174,7 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
   end
 
   def test_create_version_is_a_non_idempotent_non_destructive_write
-    annotations = RedmineMcpPlugin::Tools::CreateVersion.to_h[:annotations]
+    annotations = RedmineMcp::Tools::CreateVersion.to_h[:annotations]
 
     assert_not annotations[:readOnlyHint]
     assert_not annotations[:destructiveHint]
@@ -250,7 +251,192 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
     assert_equal 'overwritten', page.content.reload.text
   end
 
+  # --- list_issue_custom_fields ---------------------------------------------
+
+  def test_list_issue_custom_fields_is_listed_in_read_only_mode
+    assert_includes tools_list(build_server(User.find(2))).map { |t| t[:name] }, 'list_issue_custom_fields'
+  end
+
+  def test_list_issue_custom_fields_describes_the_trackers_fields
+    result = call_as(User.find(2), 'list_issue_custom_fields',
+                     'project' => 'ecookbook', 'tracker' => 'Bug')[:result]
+
+    assert_not result[:isError], result[:content]&.first&.dig(:text)
+    payload = result[:structuredContent]
+    assert_equal 'ecookbook', payload[:project_identifier]
+    assert_equal 'Bug', payload[:tracker]
+    database = payload[:custom_fields].find { |f| f[:id] == 1 }
+    assert_equal 'Database', database[:name]
+    assert_equal 'list', database[:field_format]
+    assert_equal false, database[:required]
+    assert_equal false, database[:multiple]
+    assert_equal %w[MySQL PostgreSQL Oracle], database[:possible_values].map { |v| v[:value] }
+    assert_equal %w[MySQL PostgreSQL Oracle], database[:possible_values].map { |v| v[:label] }
+    searchable = payload[:custom_fields].find { |f| f[:id] == 2 }
+    assert_nil searchable[:possible_values], 'free-text fields have no value list'
+  end
+
+  def test_list_issue_custom_fields_omits_fields_not_assigned_to_the_tracker
+    result = call_as(User.find(2), 'list_issue_custom_fields',
+                     'project' => 'ecookbook', 'tracker' => 'Support request')[:result]
+
+    assert_not result[:isError], result[:content]&.first&.dig(:text)
+    assert_not_includes result[:structuredContent][:custom_fields].pluck(:id), 1
+  end
+
+  def test_list_issue_custom_fields_reports_is_required_fields_as_required
+    CustomField.find(1).update!(is_required: true)
+
+    result = call_as(User.find(2), 'list_issue_custom_fields',
+                     'project' => 'ecookbook', 'tracker' => 'Bug')[:result]
+
+    assert result[:structuredContent][:custom_fields].find { |f| f[:id] == 1 }[:required]
+  end
+
+  def test_list_issue_custom_fields_reports_workflow_required_fields_as_required
+    WorkflowPermission.create!(tracker_id: 1, old_status_id: 1, role_id: 1,
+                               field_name: '2', rule: 'required')
+
+    result = call_as(User.find(2), 'list_issue_custom_fields',
+                     'project' => 'ecookbook', 'tracker' => 'Bug')[:result]
+
+    assert result[:structuredContent][:custom_fields].find { |f| f[:id] == 2 }[:required]
+  end
+
+  # Developers (role 2) must not learn about a field visible to managers only.
+  def test_list_issue_custom_fields_hides_role_restricted_fields
+    hidden = manager_only_issue_field
+
+    developer = call_as(User.find(3), 'list_issue_custom_fields',
+                        'project' => 'ecookbook', 'tracker' => 'Bug')[:result]
+    manager = call_as(User.find(2), 'list_issue_custom_fields',
+                      'project' => 'ecookbook', 'tracker' => 'Bug')[:result]
+
+    assert_not_includes developer[:structuredContent][:custom_fields].pluck(:id), hidden.id
+    assert_includes manager[:structuredContent][:custom_fields].pluck(:id), hidden.id
+  end
+
+  def test_list_issue_custom_fields_honors_per_project_authorize
+    result = call_as(User.find(3), 'list_issue_custom_fields', 'project' => 'subproject2')[:result]
+
+    assert result[:isError]
+    assert_match(/permission/i, result[:content].first[:text])
+  end
+
+  def test_list_issue_custom_fields_rejects_unknown_tracker
+    result = call_as(User.find(2), 'list_issue_custom_fields',
+                     'project' => 'ecookbook', 'tracker' => 'Nope')[:result]
+
+    assert result[:isError]
+    assert_match(/no tracker named/i, result[:content].first[:text])
+  end
+
+  # --- create_issue custom_fields -------------------------------------------
+
+  def test_create_issue_sets_a_custom_field_by_name
+    result = create_issue_as(User.find(2), custom_fields: [{ 'name' => 'Database', 'value' => 'PostgreSQL' }])
+
+    assert_not result[:isError], result[:content]&.first&.dig(:text)
+    issue = Issue.find(result[:structuredContent][:id])
+    assert_equal 'PostgreSQL', issue.custom_field_value(CustomField.find(1))
+    database = result[:structuredContent][:custom_fields].find { |f| f[:id] == 1 }
+    assert_equal 'PostgreSQL', database[:value]
+  end
+
+  def test_create_issue_sets_a_custom_field_by_id
+    result = create_issue_as(User.find(2), custom_fields: [{ 'id' => 1, 'value' => 'Oracle' }])
+
+    assert_not result[:isError], result[:content]&.first&.dig(:text)
+    assert_equal 'Oracle', Issue.find(result[:structuredContent][:id]).custom_field_value(CustomField.find(1))
+  end
+
+  def test_create_issue_maps_an_enumeration_label_to_its_stored_id
+    field = enumeration_issue_field
+    maintenance = field.enumerations.find_by(name: 'Maintenance')
+
+    result = create_issue_as(User.find(2), custom_fields: [{ 'name' => 'Ticket type', 'value' => 'Maintenance' }])
+
+    assert_not result[:isError], result[:content]&.first&.dig(:text)
+    issue = Issue.find(result[:structuredContent][:id])
+    assert_equal maintenance.id.to_s, issue.custom_field_value(field)
+  end
+
+  def test_create_issue_rejects_a_value_outside_the_allowed_list
+    assert_no_difference 'Issue.count' do
+      result = create_issue_as(User.find(2), custom_fields: [{ 'name' => 'Database', 'value' => 'Access' }])
+
+      assert result[:isError]
+      assert_match(/Database.*not included in the list/i, result[:content].first[:text])
+    end
+  end
+
+  def test_create_issue_requires_required_custom_fields
+    CustomField.find(1).update!(is_required: true)
+
+    assert_no_difference 'Issue.count' do
+      result = create_issue_as(User.find(2))
+
+      assert result[:isError]
+      assert_match(/Database cannot be blank/i, result[:content].first[:text])
+    end
+  end
+
+  def test_create_issue_rejects_unusable_custom_field_entries
+    hidden = manager_only_issue_field
+    other_tracker = IssueCustomField.create!(name: 'Feature only', field_format: 'string', is_for_all: true,
+                                             tracker_ids: [2])
+    bad_entries = {
+      'unknown name' => [{ 'name' => 'Nope', 'value' => 'x' }],
+      'unknown id' => [{ 'id' => 999_999, 'value' => 'x' }],
+      'field not on the tracker' => [{ 'id' => other_tracker.id, 'value' => 'x' }],
+      'role-hidden field' => [{ 'id' => hidden.id, 'value' => 'x' }],
+      'duplicate field' => [{ 'name' => 'Database', 'value' => 'Oracle' }, { 'id' => 1, 'value' => 'MySQL' }],
+      'neither id nor name' => [{ 'value' => 'x' }],
+      'both id and name' => [{ 'id' => 1, 'name' => 'Database', 'value' => 'MySQL' }],
+      'array for a single-value field' => [{ 'name' => 'Database', 'value' => %w[MySQL Oracle] }]
+    }
+
+    bad_entries.each do |label, entries|
+      assert_no_difference 'Issue.count', label do
+        result = create_issue_as(User.find(3), custom_fields: entries)
+
+        assert result[:isError], "#{label} must be rejected"
+      end
+    end
+  end
+
+  def test_create_issue_without_custom_fields_still_works
+    result = create_issue_as(User.find(2))
+
+    assert_not result[:isError], result[:content]&.first&.dig(:text)
+  end
+
   private
+
+  def create_issue_as(user, custom_fields: nil)
+    arguments = { 'project' => 'ecookbook', 'tracker' => 'Bug', 'subject' => 'MCP custom fields' }
+    arguments['custom_fields'] = custom_fields if custom_fields
+    # McpController sets User.current after authenticating; Issue#safe_attributes=
+    # reads it, so the tool needs it set the same way here.
+    User.current = user
+    with_read_only_off { call_as(user, 'create_issue', arguments)[:result] }
+  ensure
+    User.current = nil
+  end
+
+  def enumeration_issue_field
+    field = IssueCustomField.create!(name: 'Ticket type', field_format: 'enumeration', is_for_all: true,
+                                     tracker_ids: [1])
+    %w[Feature Maintenance].each_with_index do |name, index|
+      field.enumerations.create!(name: name, position: index + 1)
+    end
+    field
+  end
+
+  def manager_only_issue_field
+    IssueCustomField.create!(name: 'Managers only', field_format: 'string', is_for_all: true,
+                             tracker_ids: [1], visible: false, role_ids: [1])
+  end
 
   def protected_ecookbook_page
     page = Project.find_by(identifier: 'ecookbook').wiki.pages.first
@@ -259,8 +445,8 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
   end
 
   def build_server(user)
-    RedmineMcpPlugin::McpServer.build(
-      tools: RedmineMcpPlugin::Registry.all.select { |tool| tool.available_to?(user, oauth_scopes: nil) },
+    RedmineMcp::McpServer.build(
+      tools: RedmineMcp::Registry.all.select { |tool| tool.available_to?(user, oauth_scopes: nil) },
       server_context: { user: user, auth: { mode: :api_key } }
     )
   end
@@ -276,11 +462,11 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
   end
 
   def with_read_only_off
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '0')
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '0')
     Setting.clear_cache
     yield
   ensure
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '1')
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '1')
     Setting.clear_cache
   end
 end

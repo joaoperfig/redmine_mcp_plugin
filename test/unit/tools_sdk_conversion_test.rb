@@ -6,15 +6,15 @@ require File.expand_path('../test_helper', __dir__)
 # Tools::Base, declares a schema the SDK accepts, and runs only through
 # MCP::Server#handle. The write gate, the per-project authorize! refusal, and
 # SDK-side argument validation are all exercised through a mounted server.
-class RedmineMcpPluginToolsSdkConversionTest < ActiveSupport::TestCase
+class RedmineMcpToolsSdkConversionTest < ActiveSupport::TestCase
   fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles,
            :issues, :issue_statuses, :trackers, :enumerations, :enabled_modules,
            :journals, :wikis, :wiki_pages, :wiki_contents
 
-  ALL_TOOLS = RedmineMcpPlugin::Registry.all
+  ALL_TOOLS = RedmineMcp::Registry.all
 
   def setup
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '1')
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '1')
     Setting.clear_cache
   end
 
@@ -26,17 +26,17 @@ class RedmineMcpPluginToolsSdkConversionTest < ActiveSupport::TestCase
 
   def test_every_registered_tool_inherits_the_sdk_base
     ALL_TOOLS.each do |tool|
-      assert_operator tool, :<, RedmineMcpPlugin::Tools::Base, "#{tool} must inherit Tools::Base"
+      assert_operator tool, :<, RedmineMcp::Tools::Base, "#{tool} must inherit Tools::Base"
       assert_operator tool, :<, MCP::Tool, "#{tool} must be an MCP::Tool"
     end
   end
 
-  # Expected to be sixteen (12 read + 4 write); a tool silently dropped from or
+  # Expected to be twenty-three (14 read + 9 write); a tool silently dropped from or
   # added to the registry would be a security-relevant regression, so the count
   # is pinned.
-  def test_registry_exposes_all_sixteen_tools
-    assert_equal 16, ALL_TOOLS.size
-    assert_equal 4, ALL_TOOLS.count(&:write?)
+  def test_registry_exposes_all_twenty_three_tools
+    assert_equal 23, ALL_TOOLS.size
+    assert_equal 9, ALL_TOOLS.count(&:write?)
   end
 
   # Each tool's descriptor comes from the SDK DSL now. Constructing to_h forces
@@ -60,7 +60,7 @@ class RedmineMcpPluginToolsSdkConversionTest < ActiveSupport::TestCase
   def test_write_tools_carry_a_non_read_only_hint
     write_tools = ALL_TOOLS.select(&:write?)
 
-    assert_equal %w[create_issue add_issue_note create_version create_wiki_page].sort,
+    assert_equal %w[create_issue update_issue add_issue_relation add_issue_note create_version create_wiki_page create_time_entry update_time_entry delete_time_entry].sort,
                  write_tools.map { |t| t.to_h[:name] }.sort
     write_tools.each do |tool|
       assert_not tool.to_h[:annotations][:readOnlyHint], "#{tool} is a write tool"
@@ -87,11 +87,11 @@ class RedmineMcpPluginToolsSdkConversionTest < ActiveSupport::TestCase
                         'a write tool must not be discoverable in read-only mode'
 
     # Even reached directly, the execution lock refuses with the uniform wording.
-    result = RedmineMcpPlugin::Tools::CreateIssue.call(
+    result = RedmineMcp::Tools::CreateIssue.call(
       server_context: { user: User.find(1) }, project: 'ecookbook', subject: 'x'
     ).to_h
     assert result[:isError]
-    assert_equal RedmineMcpPlugin::Tools::Base::UNAVAILABLE, result[:content].first[:text]
+    assert_equal RedmineMcp::Tools::Base::UNAVAILABLE, result[:content].first[:text]
   end
 
   # authorize! stays enforced per project: a user without :add_issues on the
@@ -136,7 +136,7 @@ class RedmineMcpPluginToolsSdkConversionTest < ActiveSupport::TestCase
 
   def test_unedited_descriptions_are_listed_unchanged
     with_descriptions('tool_get_project_description' => "  \r\n") do
-      tool = RedmineMcpPlugin::Tools::GetProject
+      tool = RedmineMcp::Tools::GetProject
 
       assert_equal tool.description_value, tool.to_h[:description]
       assert_equal tool.input_schema_value.to_h, tool.to_h[:inputSchema]
@@ -146,7 +146,7 @@ class RedmineMcpPluginToolsSdkConversionTest < ActiveSupport::TestCase
   # Only the listed copy changes: the schema calls are validated against keeps
   # its own descriptions, names, types, and required list.
   def test_edited_descriptions_do_not_change_validation
-    tool = RedmineMcpPlugin::Tools::GetProject
+    tool = RedmineMcp::Tools::GetProject
     schema_before = tool.input_schema_value.to_h.deep_dup
 
     with_descriptions('tool_get_project_param_project_description' => 'Edited parameter.') do
@@ -164,17 +164,17 @@ class RedmineMcpPluginToolsSdkConversionTest < ActiveSupport::TestCase
   private
 
   def with_descriptions(edits)
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '1').merge(edits)
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '1').merge(edits)
     Setting.clear_cache
     yield
   ensure
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '1')
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '1')
     Setting.clear_cache
   end
 
   def build_server(user)
-    RedmineMcpPlugin::McpServer.build(
-      tools: RedmineMcpPlugin::Registry.all.select { |tool| tool.available_to?(user, oauth_scopes: nil) },
+    RedmineMcp::McpServer.build(
+      tools: RedmineMcp::Registry.all.select { |tool| tool.available_to?(user, oauth_scopes: nil) },
       server_context: { user: user, auth: { mode: :api_key } }
     )
   end
@@ -189,11 +189,11 @@ class RedmineMcpPluginToolsSdkConversionTest < ActiveSupport::TestCase
   end
 
   def with_read_only_off
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '0')
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '0')
     Setting.clear_cache
     yield
   ensure
-    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge('read_only' => '1')
+    Setting.plugin_redmine_mcp = RedmineMcp::Settings::DEFAULTS.merge('read_only' => '1')
     Setting.clear_cache
   end
 end

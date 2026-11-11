@@ -1,0 +1,68 @@
+<%
+  settings = tab[:settings]
+  checked  = ->(key) { %w[1 true yes on].include?(settings[key].to_s.strip.downcase) }
+  endpoint = url_for(controller: 'mcp', action: 'handle', only_path: false)
+%>
+
+<% unless Setting.rest_api_enabled? %>
+  <div class="warning">
+    <%= l('redmine_mcp.settings.rest_api_warning') %>
+  </div>
+<% end %>
+
+<fieldset class="box">
+  <legend><%= l('redmine_mcp.settings.section_endpoint') %></legend>
+  <p>
+    <label for="settings_enabled"><%= l('redmine_mcp.settings.enabled') %></label>
+    <%= hidden_field_tag 'settings[enabled]', '0' %>
+    <%= check_box_tag 'settings[enabled]', '1', checked.call('enabled'), id: 'settings_enabled' %>
+    <em class="info"><%= l('redmine_mcp.settings.enabled_hint', url: endpoint) %></em>
+  </p>
+</fieldset>
+
+<fieldset class="box">
+  <legend><%= l('redmine_mcp.settings.section_authentication') %></legend>
+
+  <% unless %w[auth_oauth2 auth_api_key auth_basic auth_session].any? { |k| checked.call(k) } %>
+    <div class="warning"><%= l('redmine_mcp.settings.no_auth_warning') %></div>
+  <% end %>
+
+  <% %w[auth_oauth2 auth_api_key auth_basic auth_session].each do |key| %>
+    <p>
+      <label for="settings_<%= key %>"><%= l("redmine_mcp.settings.#{key}") %></label>
+      <%= hidden_field_tag "settings[#{key}]", '0' %>
+      <%= check_box_tag "settings[#{key}]", '1', checked.call(key), id: "settings_#{key}" %>
+      <em class="info"><%= l("redmine_mcp.settings.#{key}_hint") %></em>
+    </p>
+  <% end %>
+
+  <p>
+    <label for="settings_allowed_origins"><%= l('redmine_mcp.settings.allowed_origins') %></label>
+    <%= text_area_tag 'settings[allowed_origins]', settings[:allowed_origins], rows: 3, cols: 50,
+                      id: 'settings_allowed_origins' %>
+    <em class="info"><%= l('redmine_mcp.settings.allowed_origins_hint') %></em>
+  </p>
+</fieldset>
+
+<fieldset class="box">
+  <legend><%= l('redmine_mcp.settings.section_behaviour') %></legend>
+  <p>
+    <label for="settings_read_only"><%= l('redmine_mcp.settings.read_only') %></label>
+    <%= hidden_field_tag 'settings[read_only]', '0' %>
+    <%= check_box_tag 'settings[read_only]', '1', checked.call('read_only'), id: 'settings_read_only' %>
+    <em class="info"><%= l('redmine_mcp.settings.read_only_hint') %></em>
+  </p>
+  <p>
+    <label for="settings_max_results"><%= l('redmine_mcp.settings.max_results') %></label>
+    <%= number_field_tag 'settings[max_results]', settings[:max_results], min: 1,
+                         max: RedmineMcp::Settings::ABSOLUTE_MAX_RESULTS, id: 'settings_max_results' %>
+    <em class="info"><%= l('redmine_mcp.settings.max_results_hint',
+                           max: RedmineMcp::Settings::ABSOLUTE_MAX_RESULTS) %></em>
+  </p>
+  <p>
+    <label for="settings_dcr_enabled"><%= l('redmine_mcp.settings.dcr_enabled') %></label>
+    <%= hidden_field_tag 'settings[dcr_enabled]', '0' %>
+    <%= check_box_tag 'settings[dcr_enabled]', '1', checked.call('dcr_enabled'), id: 'settings_dcr_enabled' %>
+    <em class="info"><%= l('redmine_mcp.settings.dcr_enabled_hint') %></em>
+  </p>
+</fieldset>

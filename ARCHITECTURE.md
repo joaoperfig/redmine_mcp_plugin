@@ -17,12 +17,12 @@ flowchart LR
   subgraph Host["Redmine host process"]
     Router["Rails router"]
 
-    subgraph Plugin["redmine_mcp_plugin"]
+    subgraph Plugin["redmine_mcp"]
       Routes["config/routes.rb"]
       Controller["McpController"]
       Core["Authenticator, McpServer / MCP::Server,<br/>Registry, Tools::Base &lt; MCP::Tool"]
-      Tools["RedmineMcpPlugin::Tools"]
-      PluginSettings["RedmineMcpPlugin::Settings"]
+      Tools["RedmineMcp::Tools"]
+      PluginSettings["RedmineMcp::Settings"]
     end
 
     HostServices["ApplicationController, Setting,<br/>User and Doorkeeper"]
@@ -43,20 +43,20 @@ flowchart LR
   Models --> Database
 ```
 
-The boxes inside `redmine_mcp_plugin` correspond to code owned here:
+The boxes inside `redmine_mcp` correspond to code owned here:
 
 - [`config/routes.rb`](config/routes.rb) mounts the transport, OAuth metadata,
   and optional dynamic-registration routes into the Rails router.
 - [`McpController`](app/controllers/mcp_controller.rb) is the HTTP and security
   boundary for `/mcp`.
-- [`Authenticator`](lib/redmine_mcp_plugin/authenticator.rb),
-  [`McpServer`](lib/redmine_mcp_plugin/mcp_server.rb),
-  [`Registry`](lib/redmine_mcp_plugin/registry.rb), and
-  [`Tools::Base`](lib/redmine_mcp_plugin/tools/base.rb) form the live MCP
+- [`Authenticator`](lib/redmine_mcp/authenticator.rb),
+  [`McpServer`](lib/redmine_mcp/mcp_server.rb),
+  [`Registry`](lib/redmine_mcp/registry.rb), and
+  [`Tools::Base`](lib/redmine_mcp/tools/base.rb) form the live MCP
   core around the SDK's `MCP::Server` and `MCP::Tool`.
-- Classes under [`RedmineMcpPlugin::Tools`](lib/redmine_mcp_plugin/tools/) adapt
+- Classes under [`RedmineMcp::Tools`](lib/redmine_mcp/tools/) adapt
   MCP operations to Redmine models.
-- [`RedmineMcpPlugin::Settings`](lib/redmine_mcp_plugin/settings.rb) is a typed
+- [`RedmineMcp::Settings`](lib/redmine_mcp/settings.rb) is a typed
   adapter over Redmine's plugin settings.
 
 The remaining boxes are supplied by the host. Rails provides routing, controller
@@ -75,7 +75,7 @@ sequenceDiagram
   participant C as MCP client
   participant R as Rails router
   participant MC as McpController
-  participant S as RedmineMcpPlugin::Settings
+  participant S as RedmineMcp::Settings
   participant A as Authenticator
   participant H as Redmine and Doorkeeper
   participant SDK as McpServer / MCP::Server
@@ -135,17 +135,17 @@ The symbols in the sequence are implemented as follows:
 4. `McpController#verify_protocol_version` validates a supplied
    `MCP-Protocol-Version` header. The SDK negotiates `initialize` requests and
    modern per-request envelopes. Supported transport revisions live in
-   [`lib/redmine_mcp_plugin.rb`](lib/redmine_mcp_plugin.rb).
+   [`lib/redmine_mcp.rb`](lib/redmine_mcp.rb).
 5. `Registry.all` is the explicit allowlist of tool classes. For a registered
    `tools/call`, the controller resolves every permission required by that
    invocation, including argument-dependent permissions. It rejects read-only
    and role denials with a plain HTTP 403, or an OAuth scope denial with the
    challenge composed by
-   [`ScopeChallenge`](lib/redmine_mcp_plugin/scope_challenge.rb). Unknown tool
+   [`ScopeChallenge`](lib/redmine_mcp/scope_challenge.rb). Unknown tool
    names continue to the SDK.
 6. The controller applies `Tools::Base.available_to?` before mounting tools on
    a request-local server.
-7. [`McpServer`](lib/redmine_mcp_plugin/mcp_server.rb) configures the SDK's
+7. [`McpServer`](lib/redmine_mcp/mcp_server.rb) configures the SDK's
    exception reporter and builds an `MCP::Server` with the filtered tools plus
    the authenticated user and authorization context. `MCP::Server#handle`
    handles `server/discover`, `initialize`, `tools/list`, `tools/call`, `ping`,
@@ -173,11 +173,11 @@ and response objects.
 
 ### Prompts
 
-[`McpServer.build`](lib/redmine_mcp_plugin/mcp_server.rb) mounts the prompts from
-[`Prompts.all`](lib/redmine_mcp_plugin/prompts.rb) and declares the `prompts`
+[`McpServer.build`](lib/redmine_mcp/mcp_server.rb) mounts the prompts from
+[`Prompts.all`](lib/redmine_mcp/prompts.rb) and declares the `prompts`
 capability. It does not declare the `completions` capability or install a
 `completion/complete` handler because neither prompt offers argument completion. A
-[`Prompts::Base`](lib/redmine_mcp_plugin/prompts/base.rb) subclass renders
+[`Prompts::Base`](lib/redmine_mcp/prompts/base.rb) subclass renders
 instruction text for `prompts/get` with its argument values substituted as inert
 data; it performs no Redmine access of its own, so prompts carry no per-user
 discovery gate and the read tools their instructions name stay independently
@@ -211,7 +211,7 @@ no `subscribe`, no `listChanged` -- because attachment discovery is owned by
 `get_issue`, not by resource enumeration. `resources/list` is an empty page and
 `resources/templates/list` publishes the single dynamic template
 `redmine://issues/{issue_id}/attachments/{attachment_id}`
-([`Resources`](lib/redmine_mcp_plugin/resources.rb)). `get_issue` reports an
+([`Resources`](lib/redmine_mcp/resources.rb)). `get_issue` reports an
 `attachments_count` in its normal shape and, when `include_attachments` is set,
 returns one bounded page of attachment metadata (its own `attachments_offset`/
 `attachments_limit`, the latter clamped by the result cap) rather than an unbounded
@@ -221,7 +221,7 @@ bytes without the model restating the URI. Bytes never travel in a tool response
 credential-free `human_download_url` is only a manual browser fallback, never an
 advertised client-fetchable resource.
 
-[`McpServer.build`](lib/redmine_mcp_plugin/mcp_server.rb) mounts the template and
+[`McpServer.build`](lib/redmine_mcp/mcp_server.rb) mounts the template and
 installs a `resources/read` handler that runs after authentication, so every read
 resolves the issue through `Issue.visible`, re-checks `:view_issues` (OAuth scopes
 included), confirms the attachment's container is exactly that issue, and applies
@@ -309,7 +309,7 @@ is `admin`, rather than individual permissions that cannot activate Redmine's
 administrator authority. An admin-only read operation returns a plain 403 because
 the only actionable scope is write-tier `admin`, which a read step-up must never
 request. The authoritative correlation map and challenge format live in
-[`ScopeChallenge`](lib/redmine_mcp_plugin/scope_challenge.rb). Its same-tier rule
+[`ScopeChallenge`](lib/redmine_mcp/scope_challenge.rb). Its same-tier rule
 prevents a read challenge from introducing write authority. The client can union
 the challenged scopes with its current grant, re-authorize, and retry.
 
@@ -363,7 +363,7 @@ by the SDK and returns its tool-not-found JSON-RPC error.
 
 Administrators can replace each tool's description and each parameter's
 description from the plugin settings' Tools tab.
-[`Tools::Base.to_h`](lib/redmine_mcp_plugin/tools/base.rb) substitutes them into
+[`Tools::Base.to_h`](lib/redmine_mcp/tools/base.rb) substitutes them into
 a copy of the `tools/list` entry only. Arguments are validated against
 `input_schema_value`, which is never modified, so parameter names, types,
 required parameters, bounds, and `additionalProperties: false` stay code-owned.
@@ -387,7 +387,7 @@ host's Doorkeeper configuration. Scope enumeration failures fall back to the
 bootstrap set. The controller advertises dynamic registration only when that
 setting is enabled.
 
-[`DynamicClientRegistration`](lib/redmine_mcp_plugin/dynamic_client_registration.rb)
+[`DynamicClientRegistration`](lib/redmine_mcp/dynamic_client_registration.rb)
 loads `doorkeeper-openid_connect` during route drawing, avoiding the gem's early
 controller binding. It exposes only the gem's registration controller and admits
 public clients whose redirect URIs are all HTTPS or loopback. Its gate requires the
@@ -404,7 +404,7 @@ Redmine's plugin migration task and does not create a plugin-owned database.
 ## Loading and tests
 
 Redmine adds `lib/` to the main Zeitwerk loader. Each path under
-`lib/redmine_mcp_plugin/` defines its matching constant; explicit tool exposure is
+`lib/redmine_mcp/` defines its matching constant; explicit tool exposure is
 still controlled separately by `Registry.all`. Bundler eagerly requires the
 external `mcp` gem so `MCP::Server` and `MCP::Tool` exist before plugin eager
 loading. The other external-gem exception is `doorkeeper-openid_connect`, which is
