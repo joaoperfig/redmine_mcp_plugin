@@ -23,7 +23,11 @@ module RedmineMcpPlugin
           Tools::UpdateIssue,
           Tools::AddIssueNote,
           Tools::CreateVersion,
-          Tools::CreateWikiPage
+          Tools::CreateWikiPage,
+          Tools::ListTimeEntries,
+          Tools::CreateTimeEntry,
+          Tools::UpdateTimeEntry,
+          Tools::DeleteTimeEntry
         ]
       end
     end
