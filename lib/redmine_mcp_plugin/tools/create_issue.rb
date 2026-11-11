@@ -2,26 +2,26 @@
 
 module RedmineMcpPlugin
   module Tools
-    class CreateIssue < Tool
-      tool 'create_issue',
-           title: 'Create issue',
-           description: 'Create a new issue in a project.',
-           permission: :add_issues,
-           write: true,
-           schema: {
-             'type' => 'object',
-             'properties' => {
-               'project' => { 'type' => %w[string integer],
-                             'description' => 'Project identifier or numeric id.' },
-               'subject' => { 'type' => 'string', 'description' => 'Issue subject.' },
-               'description' => { 'type' => 'string' },
-               'tracker' => { 'type' => 'string', 'description' => 'Tracker name. Defaults to the project default.' },
-               'priority' => { 'type' => 'string', 'description' => 'Priority name. Defaults to the Redmine default.' },
-               'assigned_to' => { 'type' => 'string', 'description' => 'Login or name of the user or group to assign to.' }
-             },
-             'required' => %w[project subject],
-             'additionalProperties' => false
-           }
+    class CreateIssue < Base
+      tool_name 'create_issue'
+      title 'Create issue'
+      description 'Create a new issue in a project.'
+      permission :add_issues
+      write true
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'project' => { 'type' => %w[string integer],
+                         'description' => 'Project identifier or numeric id.' },
+          'subject' => { 'type' => 'string', 'description' => 'Issue subject.' },
+          'description' => { 'type' => 'string' },
+          'tracker' => { 'type' => 'string', 'description' => 'Tracker name. Defaults to the project default.' },
+          'priority' => { 'type' => 'string', 'description' => 'Priority name. Defaults to the Redmine default.' },
+          'assigned_to' => { 'type' => 'string', 'description' => 'Login or name of the user or group to assign to.' }
+        },
+        'required' => %w[project subject],
+        'additionalProperties' => false
+      )
 
       private
 
@@ -47,9 +47,9 @@ module RedmineMcpPlugin
           attributes['priority_id'] = priority.id
         end
 
-        if (assignee_name = arguments['assigned_to'].presence)
-          assignee = find_assignable(project, assignee_name.to_s)
-          raise ToolError, "#{assignee_name.inspect} is not an assignable user or group on #{project.identifier}" if assignee.nil?
+        if (login = arguments['assigned_to'].presence)
+          assignee = project.assignable_users.find_by(login: login.to_s)
+          raise ToolError, "#{login.inspect} is not an assignable user on #{project.identifier}" if assignee.nil?
 
           attributes['assigned_to_id'] = assignee.id
         end

@@ -2,20 +2,20 @@
 
 module RedmineMcpPlugin
   module Tools
-    class GetProject < Tool
-      tool 'get_project',
-           title: 'Get project',
-           description: 'Fetch one project by identifier or numeric id, with its enabled modules and trackers.',
-           permission: :view_project,
-           schema: {
-             'type' => 'object',
-             'properties' => {
-               'project' => { 'type' => %w[string integer],
-                             'description' => 'Project identifier or numeric id.' }
-             },
-             'required' => %w[project],
-             'additionalProperties' => false
-           }
+    class GetProject < Base
+      tool_name 'get_project'
+      title 'Get project'
+      description 'Fetch one project by identifier or numeric id, with its enabled modules and trackers.'
+      permission :view_project
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'project' => { 'type' => %w[string integer],
+                         'description' => 'Project identifier or numeric id.' }
+        },
+        'required' => %w[project],
+        'additionalProperties' => false
+      )
 
       private
 
@@ -34,8 +34,6 @@ module RedmineMcpPlugin
           updated_on: iso(project.updated_on),
           enabled_modules: project.enabled_module_names.sort,
           trackers: project.trackers.map { |t| { id: t.id, name: t.name } },
-          # Categories and versions are cheap and are what a model needs before
-          # it can create or filter an issue sensibly.
           issue_categories: project.issue_categories.map { |c| { id: c.id, name: c.name } },
           versions: project.shared_versions.map { |v| { id: v.id, name: v.name, status: v.status } }
         }

@@ -2,13 +2,13 @@
 
 module RedmineMcpPlugin
   module Tools
-    class UpdateIssue < Tool
-      tool 'update_issue',
-           title: 'Update issue',
-           description: 'Update a visible issue by id.',
-           permission: :edit_issues,
-           write: true,
-           schema: {
+    class UpdateIssue < Base
+      tool_name 'update_issue'
+      title 'Update issue'
+      description 'Update a visible issue by id.'
+      permission :edit_issues
+      write true
+      input_schema({
              'type' => 'object',
              'properties' => {
                'id' => { 'type' => 'integer', 'description' => 'Issue id.' },
@@ -24,7 +24,7 @@ module RedmineMcpPlugin
              },
              'required' => %w[id],
              'additionalProperties' => false
-           }
+           })
 
       private
 

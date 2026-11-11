@@ -2,13 +2,12 @@
 
 module RedmineMcpPlugin
   module Tools
-    class WhoAmI < Tool
-      tool 'whoami',
-           title: 'Current user',
-           description: 'Return the Redmine user this MCP connection is authenticated as, ' \
-                        'and the OAuth2 scopes limiting it if any.',
-           permission: nil,
-           schema: { 'type' => 'object', 'additionalProperties' => false }
+    class WhoAmI < Base
+      tool_name 'whoami'
+      title 'Current user'
+      description 'Return the Redmine user this MCP connection is authenticated as, ' \
+                  'and the OAuth2 scopes limiting it if any.'
+      input_schema('type' => 'object', 'additionalProperties' => false)
 
       private
 

@@ -17,8 +17,23 @@ pt:
       read_only: Modo apenas-leitura
       read_only_hint: "Esconde e recusa todas as ferramentas que criem ou alterem dados. Activo por omissao."
       allowed_origins: Origens adicionais permitidas
-      allowed_origins_hint: "Uma por linha, por exemplo https://app.example.com. A origem deste Redmine e sempre permitida. Pedidos sem cabecalho Origin - ou seja, todos os clientes MCP fora do browser - nao sao afectados."
+      allowed_origins_hint: "Uma por linha, por exemplo https://app.example.com. A origem deste Redmine e sempre permitida. Pedidos sem cabecalho Origin - o caso habitual para clientes MCP fora do browser - nao sao afectados."
       max_results: Maximo de resultados por chamada
       max_results_hint: "Limite superior de linhas devolvidas por uma ferramenta. Limitado a %{max}."
+      dcr_enabled: Activar registo dinamico de clientes (RFC 7591)
+      dcr_enabled_hint: "Desactivado por omissao. Quando activo, abre um endpoint de registo sem autenticacao onde qualquer cliente pode registar uma aplicacao OAuth2."
       rest_api_warning: "A API REST esta desactivada em Administracao > Configuracao > API, o que desactiva tambem a autenticacao OAuth2, por chave de API e HTTP Basic neste endpoint."
       no_auth_warning: "Nenhum modo de autenticacao esta activo, pelo que o endpoint vai recusar todos os pedidos."
+      tab_general: Geral
+      tab_prompts: Prompts
+      prompts_intro: "Texto que este servidor entrega aos clientes de IA. Cada campo comeca com o texto por omissao. Um campo deixado no texto por omissao continua a segui-lo quando o plugin e actualizado; limpe um campo para voltar ao texto por omissao."
+      server_instructions: Instrucoes do servidor
+      server_instructions_hint: "Enviadas a cada cliente quando se liga. A maioria dos clientes junta-as ao contexto do modelo durante toda a conversa."
+      prompt_request_hint: "Escreva %{placeholder} onde deve ficar o pedido do utilizador. Sem isso, o pedido e acrescentado no fim."
+      restore_default: Repor texto por omissao
+      tab_tools: Ferramentas
+      tools_intro: "O que cada ferramenta diz aos clientes de IA sobre si e os seus parametros. So as descricoes sao editaveis: os nomes, tipos e parametros obrigatorios sao fixos, porque cada chamada e validada com eles. Todas as ferramentas aparecem, incluindo as que o modo so de leitura ou as permissoes de um utilizador escondem. Os clientes costumam obter a lista de ferramentas uma vez por ligacao, por isso as alteracoes aplicam-se quando voltam a ligar."
+      tool_description: Descricao
+      parameter_required: obrigatorio
+      edited: alterado
+      restore_defaults: Repor textos por omissao
