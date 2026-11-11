@@ -20,7 +20,7 @@ module RedmineMcpPlugin
         'additionalProperties' => false
       )
 
-      def self.required_permissions(arguments = {})
+      def self.required_permissions(arguments = {}, user: User.current)
         permissions = super
         arguments['private'] == true ? permissions + %i[set_notes_private] : permissions
       end

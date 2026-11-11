@@ -57,124 +57,124 @@ module RedmineMcpPlugin
       tool_name 'search_issues'
       title 'Search issues'
       description 'Search issues visible to the authenticated user. By default issues of all statuses are ' \
-                        'searched. Use query for subject/description text search and filters for Redmine issue-list ' \
-                        'filters; all conditions are combined with AND. Returns newest-updated first.'
+                  'searched. Use query for subject/description text search and filters for Redmine issue-list ' \
+                  'filters; all conditions are combined with AND. Returns newest-updated first.'
       permission :view_issues
-      input_schema({
-             'type' => 'object',
-             'properties' => {
-               'project' => {
-                 'type' => %w[string integer],
-                 'description' => 'Optional project context (identifier or numeric id). Restricts results to that ' \
-                                  'project by default and makes project-specific Redmine filters available.'
-               },
-               'query' => {
-                 'type' => 'string',
-                 'description' => 'Case-insensitive substring matched against issue subject and description.'
-               },
-               'filters' => {
-                 'type' => 'object',
-                 'description' =>
-                   'Redmine issue-list filters. Recommended human-readable filters are documented explicitly below ' \
-                   'and resolve their values using the choices Redmine exposes for the current query. ' \
-                   'Some listed filters may be unavailable in a particular project because Redmine disables fields ' \
-                   'based on project/tracker configuration or permissions. User filters accept display names, ' \
-                   'logins, and the special value "me"; use a login to disambiguate duplicate display names. ' \
-                   'Additional native Redmine filters are accepted as additional properties, including *_id fields ' \
-                   'for callers that already know exact IDs, plugin/relation/project-specific filters, and cf_<id> ' \
-                   'custom fields. ' + OPERATOR_GROUPS_DESCRIPTION,
-                 'properties' => {
-                   'assigned_to' => issue_filter_schema(
-                     'Filter by assignee. Uses Nullable History List operators. Depending on configuration, ' \
-                     'assignees may include groups.',
-                     'Array of user display names, logins or "me".'
-                   ),
-                   'author' => issue_filter_schema(
-                     'Filter by issue author/creator. Uses List operators.',
-                     'Array of user display names, logins or "me".'
-                   ),
-                   'category' => issue_filter_schema(
-                     'Filter by issue category name. Uses Nullable History List operators. Available only in a ' \
-                     'project context.',
-                     'Category names.'
-                   ),
-                   'closed_on' => issue_filter_schema(
-                     'Issue closed date. Uses Date operators. Prefer absolute ISO dates such as "2026-10-01".',
-                     'ISO date values.'
-                   ),
-                   'created_on' => issue_filter_schema(
-                     'Issue creation date. Uses Date operators. Prefer absolute ISO dates such as "2026-10-01".',
-                     'ISO date values.'
-                   ),
-                   'description' => issue_filter_schema(
-                     'Issue description text filter. Uses Text operators.',
-                     'Text values.'
-                   ),
-                   'done_ratio' => issue_filter_schema(
-                     'Issue completion percentage. Uses Numeric operators.',
-                     'Numeric percentage values.'
-                   ),
-                   'due_date' => issue_filter_schema(
-                     'Issue due date. Uses Date operators. Prefer absolute ISO dates such as "2026-10-01".',
-                     'ISO date values.'
-                   ),
-                   'fixed_version' => issue_filter_schema(
-                     'Filter by target-version label, typically "Project - Version". Uses ' \
-                     'Nullable History List operators. Ambiguous labels are rejected; use the native ' \
-                     'fixed_version_id filter to disambiguate.',
-                     'Target-version labels.'
-                   ),
-                   'issue_id' => issue_filter_schema(
-                     'Issue numeric ID. Uses Numeric operators.',
-                     'Numeric issue IDs.'
-                   ),
-                   'last_updated_by' => issue_filter_schema(
-                     'Filter by the user who performed the latest visible update. Uses List operators.',
-                     'Array of user display names, logins or "me".'
-                   ),
-                   'notes' => issue_filter_schema(
-                     'Issue notes/comments text filter. Uses Text operators.',
-                     'Text values.'
-                   ),
-                   'priority' => issue_filter_schema(
-                     'Filter by priority name. Uses History List operators.',
-                     'Priority names, e.g. "High".'
-                   ),
-                   'start_date' => issue_filter_schema(
-                     'Issue start date. Uses Date operators. Prefer absolute ISO dates such as "2026-10-01".',
-                     'ISO date values.'
-                   ),
-                   'status' => issue_filter_schema(
-                     'Filter by issue status name. Uses Status operators. If omitted, issues of all statuses are ' \
-                     'searched.',
-                     'Status names, e.g. "New" or "Resolved".'
-                   ),
-                   'subject' => issue_filter_schema(
-                     'Issue subject text filter. Uses Text operators.',
-                     'Text values.'
-                   ),
-                   'tracker' => issue_filter_schema(
-                     'Filter by tracker name. Uses History List operators.',
-                     'Tracker names, e.g. "Bug".'
-                   ),
-                   'updated_by' => issue_filter_schema(
-                     'Filter by a user who has updated the issue. Uses List operators.',
-                     'Array of user display names, logins or "me".'
-                   ),
-                   'updated_on' => issue_filter_schema(
-                     'Issue last-updated date. Uses Date operators. Prefer absolute ISO dates such as "2026-10-01".',
-                     'ISO date values.'
-                   ),
-                   'watcher' => issue_filter_schema(
-                     'Filter by a user who watches the issue. Uses List operators.',
-                     'Array of user display names, logins or "me".'
-                   ),
-                 },
-                 'additionalProperties' => issue_filter_schema(
-                   'Additional native Redmine IssueQuery filter. Valid operators and values depend on the filter ' \
-                   'type, current project, and Redmine configuration.'
-                 )
-               },
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'project' => {
+            'type' => %w[string integer],
+            'description' => 'Optional project context (identifier or numeric id). Restricts results to that ' \
+                             'project by default and makes project-specific Redmine filters available.'
+          },
+          'query' => {
+            'type' => 'string',
+            'description' => 'Case-insensitive substring matched against issue subject and description.'
+          },
+          'filters' => {
+            'type' => 'object',
+            'description' =>
+      'Redmine issue-list filters. Recommended human-readable filters are documented explicitly below ' \
+      'and resolve their values using the choices Redmine exposes for the current query. ' \
+      'Some listed filters may be unavailable in a particular project because Redmine disables fields ' \
+      'based on project/tracker configuration or permissions. User filters accept display names, ' \
+      'logins, and the special value "me"; use a login to disambiguate duplicate display names. ' \
+      'Additional native Redmine filters are accepted as additional properties, including *_id fields ' \
+      'for callers that already know exact IDs, plugin/relation/project-specific filters, and cf_<id> ' \
+      'custom fields. ' + OPERATOR_GROUPS_DESCRIPTION,
+            'properties' => {
+              'assigned_to' => issue_filter_schema(
+                'Filter by assignee. Uses Nullable History List operators. Depending on configuration, ' \
+                'assignees may include groups.',
+                'Array of user display names, logins or "me".'
+              ),
+              'author' => issue_filter_schema(
+        'Filter by issue author/creator. Uses List operators.',
+        'Array of user display names, logins or "me".'
+      ),
+              'category' => issue_filter_schema(
+        'Filter by issue category name. Uses Nullable History List operators. Available only in a ' \
+        'project context.',
+        'Category names.'
+      ),
+              'closed_on' => issue_filter_schema(
+        'Issue closed date. Uses Date operators. Prefer absolute ISO dates such as "2026-10-01".',
+        'ISO date values.'
+      ),
+              'created_on' => issue_filter_schema(
+        'Issue creation date. Uses Date operators. Prefer absolute ISO dates such as "2026-10-01".',
+        'ISO date values.'
+      ),
+              'description' => issue_filter_schema(
+        'Issue description text filter. Uses Text operators.',
+        'Text values.'
+      ),
+              'done_ratio' => issue_filter_schema(
+        'Issue completion percentage. Uses Numeric operators.',
+        'Numeric percentage values.'
+      ),
+              'due_date' => issue_filter_schema(
+        'Issue due date. Uses Date operators. Prefer absolute ISO dates such as "2026-10-01".',
+        'ISO date values.'
+      ),
+              'fixed_version' => issue_filter_schema(
+        'Filter by target-version label, typically "Project - Version". Uses ' \
+        'Nullable History List operators. Ambiguous labels are rejected; use the native ' \
+        'fixed_version_id filter to disambiguate.',
+        'Target-version labels.'
+      ),
+              'issue_id' => issue_filter_schema(
+        'Issue numeric ID. Uses Numeric operators.',
+        'Numeric issue IDs.'
+      ),
+              'last_updated_by' => issue_filter_schema(
+        'Filter by the user who performed the latest visible update. Uses List operators.',
+        'Array of user display names, logins or "me".'
+      ),
+              'notes' => issue_filter_schema(
+        'Issue notes/comments text filter. Uses Text operators.',
+        'Text values.'
+      ),
+              'priority' => issue_filter_schema(
+        'Filter by priority name. Uses History List operators.',
+        'Priority names, e.g. "High".'
+      ),
+              'start_date' => issue_filter_schema(
+        'Issue start date. Uses Date operators. Prefer absolute ISO dates such as "2026-10-01".',
+        'ISO date values.'
+      ),
+              'status' => issue_filter_schema(
+        'Filter by issue status name. Uses Status operators. If omitted, issues of all statuses are ' \
+        'searched.',
+        'Status names, e.g. "New" or "Resolved".'
+      ),
+              'subject' => issue_filter_schema(
+        'Issue subject text filter. Uses Text operators.',
+        'Text values.'
+      ),
+              'tracker' => issue_filter_schema(
+        'Filter by tracker name. Uses History List operators.',
+        'Tracker names, e.g. "Bug".'
+      ),
+              'updated_by' => issue_filter_schema(
+        'Filter by a user who has updated the issue. Uses List operators.',
+        'Array of user display names, logins or "me".'
+      ),
+              'updated_on' => issue_filter_schema(
+        'Issue last-updated date. Uses Date operators. Prefer absolute ISO dates such as "2026-10-01".',
+        'ISO date values.'
+      ),
+              'watcher' => issue_filter_schema(
+        'Filter by a user who watches the issue. Uses List operators.',
+        'Array of user display names, logins or "me".'
+      ),
+            },
+            'additionalProperties' => issue_filter_schema(
+      'Additional native Redmine IssueQuery filter. Valid operators and values depend on the filter ' \
+      'type, current project, and Redmine configuration.'
+    )
+          },
           'status' => { 'type' => 'string', 'enum' => %w[open closed all],
                         'description' => 'Issue status filter. Defaults to all.' },
           'tracker' => { 'type' => 'string', 'description' => 'Tracker name, e.g. Bug.' },
@@ -191,19 +191,19 @@ module RedmineMcpPlugin
           'sort' => { 'type' => 'string',
                       'enum' => %w[updated_on updated_on:desc created_on created_on:desc id id:desc],
                       'description' => 'Result order. Defaults to updated_on:desc.' },
-               'offset' => {
-                 'type' => 'integer',
-                 'minimum' => 0,
-                 'description' => 'Rows to skip, for paging past the server cap. Defaults to 0.'
-               },
-               'limit' => {
-                 'type' => 'integer',
-                 'minimum' => 1,
-                 'description' => 'Maximum issues to return.'
-               }
-             },
-             'additionalProperties' => false
-           })
+          'offset' => {
+            'type' => 'integer',
+            'minimum' => 0,
+            'description' => 'Rows to skip, for paging past the server cap. Defaults to 0.'
+          },
+          'limit' => {
+            'type' => 'integer',
+            'minimum' => 1,
+            'description' => 'Maximum issues to return.'
+          }
+        },
+        'additionalProperties' => false
+      )
 
       private
 

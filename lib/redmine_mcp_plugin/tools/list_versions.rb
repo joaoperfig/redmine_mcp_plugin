@@ -25,7 +25,7 @@ module RedmineMcpPlugin
 
       # Time totals add their own permission so the HTTP gate can challenge for
       # the whole operation before the body runs.
-      def self.required_permissions(arguments = {})
+      def self.required_permissions(arguments = {}, user: User.current)
         permissions = super
         arguments['include_time_totals'] == true ? permissions + %i[view_time_entries] : permissions
       end

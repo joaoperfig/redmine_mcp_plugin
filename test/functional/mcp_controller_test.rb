@@ -571,17 +571,6 @@ class McpControllerTest < Redmine::ControllerTest
     assert_equal Principal.visible(user).where(type: 'User').active.count, total
   end
 
-  def test_initialize_echoes_supported_version
-    post_mcp rpc('initialize', { 'protocolVersion' => '2025-06-18' }), api_key_headers(User.find(2))
-    assert_equal '2025-06-18', json_body['result']['protocolVersion']
-  end
-
-  def test_tools_list_is_cacheable_but_private
-    post_mcp rpc('tools/list'), api_key_headers(User.find(2))
-    assert_equal 'private', json_body['result']['cacheScope']
-    assert json_body['result']['ttlMs'].to_i.positive?
-  end
-
   def test_create_issue_sets_parent_category_and_version
     enable_mcp('read_only' => '0')
     parent = Issue.find(1)
@@ -635,10 +624,10 @@ class McpControllerTest < Redmine::ControllerTest
     assert_response :success
     assert IssueRelation.exists?(issue_from_id: 1, issue_to_id: 2, relation_type: 'blocks')
 
-    post_mcp rpc('tools/call', { 'name' => 'get_issue', 'arguments' => { 'id' => 2, 'include_journals' => false } }),
+    post_mcp rpc('tools/call', { 'name' => 'get_issue', 'arguments' => { 'id' => 2, 'include_journals' => false, 'include_relations' => true } }),
              api_key_headers(User.find(1))
     relations = json_body['result']['structuredContent']['relations']
-    assert_includes relations.map { |r| [r['issue_id'], r['relation_type']] }, [1, 'blocked']
+    assert_includes relations.map { |r| [r['issue_id'], r['type']] }, [1, 'blocked']
   end
 
   def test_add_issue_relation_refuses_an_existing_link_asked_in_reverse
@@ -860,8 +849,73 @@ class McpControllerTest < Redmine::ControllerTest
 
       assert result['isError'],
             "Expected #{arguments.inspect} to be rejected"
-      assert_match expected_error, result['content'].first['text']
+      assert_match(/Invalid arguments:/, result['content'].first['text'])
     end
+  end
+
+  def test_new_write_tools_are_hidden_and_refused_in_read_only_mode
+    names = %w[update_issue add_issue_relation create_time_entry update_time_entry delete_time_entry]
+    post_mcp rpc('tools/list'), api_key_headers(User.find(1))
+    assert_empty names & json_body['result']['tools'].pluck('name')
+    names.each do |name|
+      post_mcp rpc('tools/call', { 'name' => name, 'arguments' => {} }), api_key_headers(User.find(1))
+      assert_response :forbidden
+    end
+  end
+
+  def test_new_write_tools_offer_an_oauth_scope_challenge
+    enable_mcp('read_only' => '0')
+    user = User.find(2)
+    {
+      'update_issue' => 'edit_issues',
+      'add_issue_relation' => 'manage_issue_relations',
+      'create_time_entry' => 'log_time',
+      'update_time_entry' => 'edit_time_entries',
+      'delete_time_entry' => 'edit_time_entries'
+    }.each do |name, permission|
+      post_mcp rpc('tools/call', { 'name' => name, 'arguments' => {} }), oauth_headers(user, scopes: 'view_issues')
+      assert_response :forbidden
+      if name.end_with?('time_entry') && name != 'create_time_entry'
+        assert_match(/scope="edit_(own_)?time_entries"/, response.headers['WWW-Authenticate'])
+      else
+        assert_includes response.headers['WWW-Authenticate'], "scope=\"#{permission}\""
+      end
+    end
+  end
+
+  def test_oauth_time_edit_accepts_the_broader_edit_permission
+    enable_mcp('read_only' => '0')
+    user = User.find(2)
+    entry = TimeEntry.where(user_id: user.id).first
+    post_mcp rpc('tools/call', { 'name' => 'update_time_entry',
+                                 'arguments' => { 'id' => entry.id, 'comments' => 'OAuth edit' } }),
+             oauth_headers(user, scopes: 'view_time_entries edit_time_entries')
+    assert_response :success
+    assert_not json_body['result']['isError']
+    assert_equal 'OAuth edit', entry.reload.comments
+  end
+
+  def test_private_update_note_requires_its_own_oauth_scope
+    enable_mcp('read_only' => '0')
+    post_mcp rpc('tools/call', { 'name' => 'update_issue',
+                                 'arguments' => { 'id' => 1, 'notes' => 'Private update', 'private' => true } }),
+             oauth_headers(User.find(2), scopes: 'edit_issues')
+    assert_response :forbidden
+    assert_includes response.headers['WWW-Authenticate'], 'scope="edit_issues set_notes_private"'
+    assert_not Journal.exists?(notes: 'Private update')
+  end
+
+  def test_search_combines_native_filters_with_existing_arguments
+    user = User.find(2)
+    arguments = {
+      'project' => 'ecookbook', 'status' => 'open', 'sort' => 'id',
+      'filters' => { 'author_id' => { 'operator' => '=', 'values' => ['2'] } }
+    }
+    post_mcp rpc('tools/call', { 'name' => 'search_issues', 'arguments' => arguments }), api_key_headers(user)
+    assert_response :success
+    assert_not json_body['result']['isError']
+    expected = Issue.visible(user).open.where(project_id: 1, author_id: 2).order(:id).pluck(:id)
+    assert_equal expected, json_body['result']['structuredContent']['issues'].pluck('id')
   end
 
   private

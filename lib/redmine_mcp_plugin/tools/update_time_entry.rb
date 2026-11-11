@@ -4,24 +4,25 @@ module RedmineMcpPlugin
   module Tools
     class UpdateTimeEntry < Base
       include TimeEntryHelpers
+      extend TimeEntryHelpers::EditPermissions
 
       tool_name 'update_time_entry'
       title 'Update time entry'
       description "Update one of the authenticated user's own time entries. Only the fields given are changed."
       permission :edit_own_time_entries
       write true
-      input_schema({
-             'type' => 'object',
-             'properties' => {
-               'id' => { 'type' => 'integer', 'description' => 'Time entry id.' },
-               'hours' => { 'type' => 'number', 'description' => 'Hours spent, e.g. 1.5.' },
-               'spent_on' => { 'type' => 'string', 'format' => 'date', 'description' => 'ISO-8601 date the time was spent on.' },
-               'activity' => { 'type' => 'string', 'description' => 'Activity name. See list_enumerations.' },
-               'comments' => { 'type' => 'string', 'description' => 'Short description of the work.' }
-             },
-             'required' => %w[id],
-             'additionalProperties' => false
-           })
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'id' => { 'type' => 'integer', 'description' => 'Time entry id.' },
+          'hours' => { 'type' => 'number', 'description' => 'Hours spent, e.g. 1.5.' },
+          'spent_on' => { 'type' => 'string', 'format' => 'date', 'description' => 'ISO-8601 date the time was spent on.' },
+          'activity' => { 'type' => 'string', 'description' => 'Activity name. See list_enumerations.' },
+          'comments' => { 'type' => 'string', 'description' => 'Short description of the work.' }
+        },
+        'required' => %w[id],
+        'additionalProperties' => false
+      )
 
       private
 

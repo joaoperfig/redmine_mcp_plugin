@@ -8,23 +8,23 @@ module RedmineMcpPlugin
       tool_name 'list_time_entries'
       title 'List time entries'
       description 'List spent time visible to the authenticated user. All filters are optional ' \
-                        'and are combined with AND. Returns the latest spent_on first.'
+                  'and are combined with AND. Returns the latest spent_on first.'
       permission :view_time_entries
-      input_schema({
-             'type' => 'object',
-             'properties' => {
-               'project' => { 'type' => %w[string integer],
-                             'description' => 'Restrict to one project (identifier or numeric id).' },
-               'issue_id' => { 'type' => 'integer', 'description' => 'Restrict to one issue.' },
-               'user' => { 'type' => 'string', 'description' => 'Login of the user who spent the time, or "me".' },
-               'from' => { 'type' => 'string', 'format' => 'date', 'description' => 'Earliest spent_on, inclusive.' },
-               'to' => { 'type' => 'string', 'format' => 'date', 'description' => 'Latest spent_on, inclusive.' },
-               'offset' => { 'type' => 'integer', 'minimum' => 0,
-                             'description' => 'Rows to skip, for paging past the server cap. Defaults to 0.' },
-               'limit' => { 'type' => 'integer', 'minimum' => 1, 'description' => 'Maximum entries to return.' }
-             },
-             'additionalProperties' => false
-           })
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'project' => { 'type' => %w[string integer],
+                         'description' => 'Restrict to one project (identifier or numeric id).' },
+          'issue_id' => { 'type' => 'integer', 'description' => 'Restrict to one issue.' },
+          'user' => { 'type' => 'string', 'description' => 'Login of the user who spent the time, or "me".' },
+          'from' => { 'type' => 'string', 'format' => 'date', 'description' => 'Earliest spent_on, inclusive.' },
+          'to' => { 'type' => 'string', 'format' => 'date', 'description' => 'Latest spent_on, inclusive.' },
+          'offset' => { 'type' => 'integer', 'minimum' => 0,
+                        'description' => 'Rows to skip, for paging past the server cap. Defaults to 0.' },
+          'limit' => { 'type' => 'integer', 'minimum' => 1, 'description' => 'Maximum entries to return.' }
+        },
+        'additionalProperties' => false
+      )
 
       private
 

@@ -71,7 +71,7 @@ module RedmineMcpPlugin
         # Permissions required by this invocation. Tools with argument-dependent
         # authority override this so the HTTP gate can challenge for the whole
         # operation before execution begins.
-        def required_permissions(_arguments = {})
+        def required_permissions(_arguments = {}, user: User.current)
           [mcp_permission].compact
         end
 
@@ -89,11 +89,10 @@ module RedmineMcpPlugin
 
         # Checks the declared permission without OAuth scope narrowing, then
         # restores the exact scopes retained by the authentication context.
-        def role_allows?(user, oauth_scopes:, permissions: required_permissions)
-          return true if permissions.empty?
-
+        def role_allows?(user, oauth_scopes:, permissions: nil)
           user.oauth_scope = nil
           begin
+            permissions ||= required_permissions(user: user)
             permissions.all? { |permission| user.allowed_to?(permission, nil, global: true) }
           ensure
             user.oauth_scope = oauth_scopes
@@ -103,7 +102,7 @@ module RedmineMcpPlugin
         # Whether assigned and built-in roles can grant every permission without
         # relying on administrator authority. An OAuth administrator needs the
         # admin scope when this route cannot make the operation actionable.
-        def permission_scopes_can_authorize?(user, permissions: required_permissions)
+        def permission_scopes_can_authorize?(user, permissions: required_permissions(user: user))
           roles = user.roles.to_a | [user.builtin_role]
           permissions.all? do |permission|
             roles.any? { |role| role.allowed_to?(permission) }
@@ -196,7 +195,7 @@ module RedmineMcpPlugin
         klass = self.class
         arguments = arguments.to_h.deep_stringify_keys
         return refusal if klass.write? && Settings.read_only?
-        return refusal unless klass.required_permissions(arguments).all? do |permission|
+        return refusal unless klass.required_permissions(arguments, user: user).all? do |permission|
           user.allowed_to?(permission, nil, global: true)
         end
 

@@ -10,29 +10,36 @@ module RedmineMcpPlugin
       description 'Update a visible issue by id.'
       permission :edit_issues
       write true
-      input_schema({
-             'type' => 'object',
-             'properties' => {
-               'id' => { 'type' => 'integer', 'description' => 'Issue id.' },
-               'subject' => { 'type' => 'string', 'description' => 'New issue subject.' },
-               'description' => { 'type' => 'string', 'description' => 'New issue description.' },
-               'tracker' => { 'type' => 'string', 'description' => 'Tracker name.' },
-               'priority' => { 'type' => 'string', 'description' => 'Priority name.' },
-               'status' => { 'type' => 'string', 'description' => 'Target status name.' },
-               'done_ratio' => { 'type' => 'integer', 'description' => 'Completion percentage from 0 to 100.' },
-               'assigned_to' => { 'type' => 'string', 'description' => 'Login or name of the user or group to assign to, or "none" to unassign.' },
-               'category' => { 'type' => 'string', 'description' => 'Issue category name, or "none" to clear.' },
-               'fixed_version' => { 'type' => 'string',
-                                    'description' => 'Target version name, or "none" to clear. Must be open.' },
-               'parent_issue_id' => { 'type' => %w[integer string],
-                                      'description' => 'Parent issue id, or "none" to make it a top-level issue. ' \
-                                                       'Requires the manage_subtasks permission.' },
-               'notes' => { 'type' => 'string', 'description' => 'Optional comment to add with the update.' },
-               'private' => { 'type' => 'boolean', 'description' => 'Mark the note private when notes are provided.' }
-             },
-             'required' => %w[id],
-             'additionalProperties' => false
-           })
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'id' => { 'type' => 'integer', 'description' => 'Issue id.' },
+          'subject' => { 'type' => 'string', 'description' => 'New issue subject.' },
+          'description' => { 'type' => 'string', 'description' => 'New issue description.' },
+          'tracker' => { 'type' => 'string', 'description' => 'Tracker name.' },
+          'priority' => { 'type' => 'string', 'description' => 'Priority name.' },
+          'status' => { 'type' => 'string', 'description' => 'Target status name.' },
+          'done_ratio' => { 'type' => 'integer', 'description' => 'Completion percentage from 0 to 100.' },
+          'assigned_to' => { 'type' => 'string', 'description' => 'Login or name of the user or group to assign to, or "none" to unassign.' },
+          'category' => { 'type' => 'string', 'description' => 'Issue category name, or "none" to clear.' },
+          'fixed_version' => { 'type' => 'string',
+                               'description' => 'Target version name, or "none" to clear. Must be open.' },
+          'parent_issue_id' => { 'type' => %w[integer string],
+                                 'description' => 'Parent issue id, or "none" to make it a top-level issue. ' \
+                                                  'Requires the manage_subtasks permission.' },
+          'notes' => { 'type' => 'string', 'description' => 'Optional comment to add with the update.' },
+          'private' => { 'type' => 'boolean', 'description' => 'Mark the note private when notes are provided.' }
+        },
+        'required' => %w[id],
+        'additionalProperties' => false
+      )
+
+      def self.required_permissions(arguments = {}, user: User.current)
+        permissions = super
+        permissions += %i[manage_subtasks] if arguments.key?('parent_issue_id')
+        permissions += %i[set_notes_private] if arguments['notes'].present? && arguments['private'] == true
+        permissions
+      end
 
       private
 

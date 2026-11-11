@@ -149,9 +149,9 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
   # include_spent_hours requires view_time_entries; the override folds it into
   # the invocation's required permissions.
   def test_get_issue_spent_hours_demands_view_time_entries
-    assert_includes RedmineMcpPlugin::Tools::GetIssue.required_permissions('include_spent_hours' => true),
+    assert_includes RedmineMcpPlugin::Tools::GetIssue.required_permissions({ 'include_spent_hours' => true }),
                     :view_time_entries
-    assert_includes RedmineMcpPlugin::Tools::GetIssue.required_permissions('include_watchers' => true),
+    assert_includes RedmineMcpPlugin::Tools::GetIssue.required_permissions({ 'include_watchers' => true }),
                     :view_issue_watchers
     assert_not_includes RedmineMcpPlugin::Tools::GetIssue.required_permissions({}), :view_time_entries
   end

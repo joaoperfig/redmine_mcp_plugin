@@ -19,7 +19,7 @@ place this repository at `plugins/redmine_mcp_plugin`, install dependencies, and
 run the required plugin migration:
 
 ```sh
-git clone https://github.com/joaoperfig/redmine_mcp_plugin.git plugins/redmine_mcp_plugin
+git clone https://github.com/serenysoft/redmine_mcp_plugin.git plugins/redmine_mcp_plugin
 bundle install
 bin/rails redmine:plugins:migrate NAME=redmine_mcp_plugin RAILS_ENV=production
 ```
@@ -137,15 +137,35 @@ token scopes; tools denied by the user's role remain hidden.
 | Identity | `whoami` | None |
 | Projects | `list_projects`, `get_project` | `view_project` |
 | Issues | `search_issues`, `get_issue` | `view_issues` |
+| Status catalog | `list_statuses` | None |
+| Versions | `list_versions` | `view_issues`; time totals also require `view_time_entries` |
+| Groups | `get_group` | Filtered by Redmine principal visibility |
 | Wiki pages | `list_wiki_pages`, `get_wiki_page` | `view_wiki_pages` |
 | Metadata | `list_enumerations` | None |
 | Users | `list_users` | Filtered by Redmine principal visibility |
 | Issue custom fields | `list_issue_custom_fields` | `add_issues` |
 | Create an issue | `create_issue` (optional `custom_fields`, by id or name; see `list_issue_custom_fields`) | `add_issues`; read-only mode must be disabled |
+| Update an issue | `update_issue` | `edit_issues`; private notes also require `set_notes_private`; read-only mode must be disabled |
+| Issue relations | `add_issue_relation` | `manage_issue_relations`; read-only mode must be disabled |
 | Add an issue note | `add_issue_note` | `add_issue_notes`; private notes also require `set_notes_private`; read-only mode must be disabled |
+| Time entries | `list_time_entries` | `view_time_entries`; includes filtered `total_hours` |
+| Log time | `create_time_entry` | `log_time`; logs as the caller; read-only mode must be disabled |
+| Edit or delete own time | `update_time_entry`, `delete_time_entry` | `edit_own_time_entries` or `edit_time_entries`; read-only mode must be disabled; deletion is marked destructive |
+| Create a version | `create_version` | `manage_versions`; read-only mode must be disabled |
+| Create a wiki page | `create_wiki_page` | `edit_wiki_pages`; read-only mode must be disabled |
+
+Issue creation and updates accept status, category, target version, and parent issue.
+Setting a parent also requires `manage_subtasks`. Redmine's workflow and safe
+attributes still decide which changes are allowed.
+
+`search_issues` accepts native Redmine filters through `filters`, including named
+assignees/authors, status, dates, custom fields, and native numeric IDs. Conditions
+are combined with AND. It searches all statuses by default; use `status: "open"`
+or a native status filter to limit the result. Existing top-level filters and
+`sort` remain supported and combine with the native filters.
 
 Tool arguments are validated against their declared schemas. The paginated
-tools (`list_projects`, `search_issues`, `list_wiki_pages`, and `list_users`)
+tools (`list_projects`, `search_issues`, `list_wiki_pages`, `list_users`, and `list_time_entries`)
 support `limit` and `offset`, report pagination metadata, and cap each page at
 the configured maximum (100 by default, with an absolute maximum of 1000).
 

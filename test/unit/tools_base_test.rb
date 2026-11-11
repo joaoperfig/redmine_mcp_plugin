@@ -65,7 +65,7 @@ class RedmineMcpPluginToolsBaseTest < ActiveSupport::TestCase
     permission :view_issues
     input_schema({ 'type' => 'object', 'additionalProperties' => true })
 
-    def self.required_permissions(arguments = {})
+    def self.required_permissions(arguments = {}, user: User.current)
       arguments['elevated'] ? super + %i[edit_issues] : super
     end
 

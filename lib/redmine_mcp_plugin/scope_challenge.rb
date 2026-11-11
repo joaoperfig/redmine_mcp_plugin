@@ -24,6 +24,12 @@ module RedmineMcpPlugin
 
       admin: :write,
       add_issues: :write,
+      edit_issues: :write,
+      manage_subtasks: :write,
+      manage_issue_relations: :write,
+      log_time: :write,
+      edit_own_time_entries: :write,
+      edit_time_entries: :write,
       add_issue_notes: :write,
       set_notes_private: :write,
       manage_versions: :write,

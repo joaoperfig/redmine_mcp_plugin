@@ -38,7 +38,7 @@ module RedmineMcpPlugin
       # The privileged includes add their own permission so the HTTP gate can
       # challenge for the whole operation before the body runs; the execution
       # backstop re-checks them too.
-      def self.required_permissions(arguments = {})
+      def self.required_permissions(arguments = {}, user: User.current)
         permissions = super
         permissions += %i[view_issue_watchers] if arguments['include_watchers'] == true
         permissions += %i[view_time_entries] if arguments['include_spent_hours'] == true

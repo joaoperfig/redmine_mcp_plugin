@@ -10,22 +10,22 @@ module RedmineMcpPlugin
       description 'Log spent time for the authenticated user on an issue or a project.'
       permission :log_time
       write true
-      input_schema({
-             'type' => 'object',
-             'properties' => {
-               'issue_id' => { 'type' => 'integer', 'description' => 'Issue to log time on. Either this or project is required.' },
-               'project' => { 'type' => %w[string integer],
-                             'description' => 'Project identifier or numeric id, for time not tied to an issue.' },
-               'hours' => { 'type' => 'number', 'description' => 'Hours spent, e.g. 1.5.' },
-               'spent_on' => { 'type' => 'string', 'format' => 'date',
-                               'description' => 'ISO-8601 date the time was spent on. Defaults to today.' },
-               'activity' => { 'type' => 'string',
-                               'description' => 'Activity name. Defaults to the default activity. See list_enumerations.' },
-               'comments' => { 'type' => 'string', 'description' => 'Short description of the work.' }
-             },
-             'required' => %w[hours],
-             'additionalProperties' => false
-           })
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'issue_id' => { 'type' => 'integer', 'description' => 'Issue to log time on. Either this or project is required.' },
+          'project' => { 'type' => %w[string integer],
+                         'description' => 'Project identifier or numeric id, for time not tied to an issue.' },
+          'hours' => { 'type' => 'number', 'description' => 'Hours spent, e.g. 1.5.' },
+          'spent_on' => { 'type' => 'string', 'format' => 'date',
+                          'description' => 'ISO-8601 date the time was spent on. Defaults to today.' },
+          'activity' => { 'type' => 'string',
+                          'description' => 'Activity name. Defaults to the default activity. See list_enumerations.' },
+          'comments' => { 'type' => 'string', 'description' => 'Short description of the work.' }
+        },
+        'required' => %w[hours],
+        'additionalProperties' => false
+      )
 
       private
 

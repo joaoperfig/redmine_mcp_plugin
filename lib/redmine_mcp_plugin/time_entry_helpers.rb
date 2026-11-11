@@ -4,9 +4,22 @@ module RedmineMcpPlugin
   # Shared by the time entry tools, so that they parse arguments and render
   # entries the same way.
   module TimeEntryHelpers
+    module EditPermissions
+      # Core permits either permission on an own entry. Prefer a permission the
+      # current token can exercise, then a role-grantable scope for OAuth step-up.
+      def required_permissions(_arguments = {}, user: User.current)
+        candidates = %i[edit_own_time_entries edit_time_entries]
+        permission = candidates.find { |candidate| user.allowed_to?(candidate, nil, global: true) }
+        permission ||= candidates.find do |candidate|
+          permission_scopes_can_authorize?(user, permissions: [candidate])
+        end
+        [permission || :edit_own_time_entries]
+      end
+    end
+
     private
 
-    # Before authorize!, for the reason given on Tool#fetch_wiki.
+    # Before authorize!, for the reason given on Tools::Base#fetch_wiki.
     def require_time_tracking!(project)
       return if project.module_enabled?(:time_tracking)
 
@@ -65,7 +78,7 @@ module RedmineMcpPlugin
         project_identifier: time_entry.project&.identifier,
         issue_id: time_entry.issue_id,
         # A time entry can be visible while its issue is not. visible? alone is
-        # blind to OAuth scopes -- see the note on Tool.
+        # blind to OAuth scopes -- see the note on Tools::Base.
         issue_subject: issue_readable?(issue) ? issue.subject : nil,
         user: time_entry.user&.name,
         activity: time_entry.activity&.name,

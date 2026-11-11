@@ -10,23 +10,23 @@ module RedmineMcpPlugin
       description 'Create a new issue in a project.'
       permission :add_issues
       write true
-      input_schema({
-             'type' => 'object',
-             'properties' => {
-               'project' => { 'type' => %w[string integer],
-                             'description' => 'Project identifier or numeric id.' },
-               'subject' => { 'type' => 'string', 'description' => 'Issue subject.' },
-               'description' => { 'type' => 'string' },
-               'tracker' => { 'type' => 'string', 'description' => 'Tracker name. Defaults to the project default.' },
-               'priority' => { 'type' => 'string', 'description' => 'Priority name. Defaults to the Redmine default.' },
-               'status' => { 'type' => 'string',
-                             'description' => 'Status name. Defaults to the tracker default. ' \
-                                              'Must be allowed by the workflow for new issues.' },
-               'assigned_to' => { 'type' => 'string', 'description' => 'Login or name of the user or group to assign to.' },
-               'category' => { 'type' => 'string', 'description' => 'Issue category name in the project.' },
-               'fixed_version' => { 'type' => 'string', 'description' => 'Target version name. Must be open.' },
-               'parent_issue_id' => { 'type' => 'integer',
-                                      'description' => 'Parent issue id. Requires the manage_subtasks permission.' },
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'project' => { 'type' => %w[string integer],
+                         'description' => 'Project identifier or numeric id.' },
+          'subject' => { 'type' => 'string', 'description' => 'Issue subject.' },
+          'description' => { 'type' => 'string' },
+          'tracker' => { 'type' => 'string', 'description' => 'Tracker name. Defaults to the project default.' },
+          'priority' => { 'type' => 'string', 'description' => 'Priority name. Defaults to the Redmine default.' },
+          'status' => { 'type' => 'string',
+                        'description' => 'Status name. Defaults to the tracker default. ' \
+                                         'Must be allowed by the workflow for new issues.' },
+          'assigned_to' => { 'type' => 'string', 'description' => 'Login or name of the user or group to assign to.' },
+          'category' => { 'type' => 'string', 'description' => 'Issue category name in the project.' },
+          'fixed_version' => { 'type' => 'string', 'description' => 'Target version name. Must be open.' },
+          'parent_issue_id' => { 'type' => 'integer',
+                                 'description' => 'Parent issue id. Requires the manage_subtasks permission.' },
           'custom_fields' => {
             'type' => 'array',
             'description' => 'Custom field values, each naming the field by id or name. Use ' \
@@ -44,10 +44,16 @@ module RedmineMcpPlugin
               'additionalProperties' => false
             }
           }
-             },
-             'required' => %w[project subject],
-             'additionalProperties' => false
-           })
+        },
+        'required' => %w[project subject],
+        'additionalProperties' => false
+      )
+
+      def self.required_permissions(arguments = {}, user: User.current)
+        permissions = super
+        permissions += %i[manage_subtasks] if arguments.key?('parent_issue_id')
+        permissions
+      end
 
       private
 
@@ -74,7 +80,7 @@ module RedmineMcpPlugin
         end
 
         if (login = arguments['assigned_to'].presence)
-          assignee = project.assignable_users.find_by(login: login.to_s)
+          assignee = find_assignable(project, login.to_s)
           raise ToolError, "#{login.inspect} is not an assignable user or group on #{project.identifier}" if assignee.nil?
 
           attributes['assigned_to_id'] = assignee.id
@@ -107,6 +113,7 @@ module RedmineMcpPlugin
           status: issue.status&.name, tracker: issue.tracker&.name, category: issue.category&.name,
           fixed_version: issue.fixed_version&.name, parent_id: issue.parent_id, custom_fields: visible_custom_fields(issue), created_on: iso(issue.created_on) }
       end
+
       def visible_custom_fields(issue)
         issue.visible_custom_field_values(user).map do |value|
           { id: value.custom_field_id, name: value.custom_field.name, value: value.value }

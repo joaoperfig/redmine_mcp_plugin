@@ -4,6 +4,7 @@ module RedmineMcpPlugin
   module Tools
     class DeleteTimeEntry < Base
       include TimeEntryHelpers
+      extend TimeEntryHelpers::EditPermissions
 
       tool_name 'delete_time_entry'
       title 'Delete time entry'
@@ -11,14 +12,14 @@ module RedmineMcpPlugin
       permission :edit_own_time_entries
       write true
       destructive true
-      input_schema({
-             'type' => 'object',
-             'properties' => {
-               'id' => { 'type' => 'integer', 'description' => 'Time entry id.' }
-             },
-             'required' => %w[id],
-             'additionalProperties' => false
-           })
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'id' => { 'type' => 'integer', 'description' => 'Time entry id.' }
+        },
+        'required' => %w[id],
+        'additionalProperties' => false
+      )
 
       private
 

@@ -14,19 +14,19 @@ module RedmineMcpPlugin
       description 'Link two issues. The type reads from issue_id: "blocks" means issue_id blocks issue_to_id.'
       permission :manage_issue_relations
       write true
-      input_schema({
-             'type' => 'object',
-             'properties' => {
-               'issue_id' => { 'type' => 'integer', 'description' => 'Issue the relation is added to.' },
-               'issue_to_id' => { 'type' => 'integer', 'description' => 'The other issue.' },
-               'relation_type' => { 'type' => 'string', 'enum' => RELATION_TYPES,
-                                    'description' => 'Defaults to relates.' },
-               'delay' => { 'type' => 'integer', 'minimum' => 0,
-                            'description' => 'Delay in days. Only meaningful for precedes and follows.' }
-             },
-             'required' => %w[issue_id issue_to_id],
-             'additionalProperties' => false
-           })
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'issue_id' => { 'type' => 'integer', 'description' => 'Issue the relation is added to.' },
+          'issue_to_id' => { 'type' => 'integer', 'description' => 'The other issue.' },
+          'relation_type' => { 'type' => 'string', 'enum' => RELATION_TYPES,
+                               'description' => 'Defaults to relates.' },
+          'delay' => { 'type' => 'integer', 'minimum' => 0,
+                       'description' => 'Delay in days. Only meaningful for precedes and follows.' }
+        },
+        'required' => %w[issue_id issue_to_id],
+        'additionalProperties' => false
+      )
 
       private
 
