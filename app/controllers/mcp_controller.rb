@@ -118,7 +118,7 @@ class McpController < ApplicationController
         response.set_header(
           'WWW-Authenticate',
           "Bearer realm=\"Redmine\", resource_metadata=\"#{oauth_protected_resource_url}\", " \
-          "scope=\"#{RedmineMcpPlugin::OAUTH_BOOTSTRAP_SCOPES.join(' ')}\""
+          "scope=\"#{RedmineMcpPlugin::ScopeChallenge.initial_scopes.join(' ')}\""
         )
       end
       return render json: { error: result.error }, status: result.status

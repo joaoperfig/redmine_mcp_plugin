@@ -107,10 +107,17 @@ plugin publishes protected-resource and authorization-server metadata at:
 ```
 
 The protected-resource metadata and the `/mcp` authentication challenge advertise
-`view_issues view_project view_wiki_pages view_issue_watchers view_time_entries`
-as the minimal read bootstrap scopes for an initial client handshake. Write scopes
-and `view_private_notes` are requested through step-up challenges as operations
-need them.
+`view_issues view_project view_wiki_pages view_issue_watchers view_time_entries view_private_notes`
+as the read bootstrap scopes for an initial client handshake. When read-only mode
+is off, they also advertise the write scopes
+(`add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private`),
+so clients that never act on a step-up challenge, such as claude.ai connectors,
+still receive a write-capable token. Private-note scopes are included because
+private notes are routine team discussion; the user's role still decides what
+they can see or set. `admin` is requested only through a step-up challenge.
+The OAuth application must allow every advertised scope: Doorkeeper rejects an
+authorization request that asks for any scope the application lacks. After turning
+read-only off, users must reconnect so their client requests a new token.
 
 Dynamic client registration (RFC 7591) is optional and disabled by default.
 Enabling it exposes `POST /oauth/registration` so public MCP clients can register

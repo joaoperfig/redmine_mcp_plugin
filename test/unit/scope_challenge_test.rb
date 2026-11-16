@@ -80,7 +80,52 @@ class RedmineMcpPluginScopeChallengeTest < ActiveSupport::TestCase
     end
   end
 
+  def test_initial_scopes_are_the_read_bootstrap_in_read_only_mode
+    with_mcp_settings('read_only' => '1') do
+      assert_equal RedmineMcpPlugin::OAUTH_BOOTSTRAP_SCOPES, Challenge.initial_scopes
+    end
+  end
+
+  def test_initial_scopes_add_write_tool_scopes_when_writes_are_enabled
+    with_mcp_settings('read_only' => '0') do
+      assert_equal RedmineMcpPlugin::OAUTH_BOOTSTRAP_SCOPES +
+                     %w[add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private],
+                   Challenge.initial_scopes
+    end
+  end
+
+  def test_initial_scopes_include_private_notes_in_both_modes
+    with_mcp_settings('read_only' => '1') do
+      assert_includes Challenge.initial_scopes, 'view_private_notes'
+      assert_not_includes Challenge.initial_scopes, 'set_notes_private'
+    end
+    with_mcp_settings('read_only' => '0') do
+      assert_includes Challenge.initial_scopes, 'view_private_notes'
+      assert_includes Challenge.initial_scopes, 'set_notes_private'
+    end
+  end
+
+  def test_initial_scopes_keep_admin_behind_step_up
+    with_mcp_settings('read_only' => '0') do
+      assert_not_includes Challenge.initial_scopes, 'admin'
+    end
+  end
+
+  def test_initial_write_extras_are_declared_write_scopes
+    Challenge::INITIAL_WRITE_EXTRAS.each do |scope|
+      assert_equal :write, Challenge::SCOPE_TIERS.fetch(scope)
+    end
+  end
+
   private
+
+  def with_mcp_settings(overrides)
+    Setting.plugin_redmine_mcp_plugin = RedmineMcpPlugin::Settings::DEFAULTS.merge(overrides)
+    Setting.clear_cache
+    yield
+  ensure
+    Setting.clear_cache
+  end
 
   def scope_of(header)
     header[/scope="([^"]*)"/, 1]

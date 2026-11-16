@@ -30,9 +30,23 @@ class McpMetadataControllerTest < Redmine::ControllerTest
     get :protected_resource
 
     assert_response :success
-    # The bootstrap subset (three core reads plus the two read satellites), not the
-    # full provider scope set and no write scopes. See OAUTH_BOOTSTRAP_SCOPES.
-    assert_equal %w[view_issues view_project view_wiki_pages view_issue_watchers view_time_entries],
+    # The bootstrap subset (three core reads, the two read satellites and private
+    # notes), not the full provider scope set and no write scopes. See
+    # OAUTH_BOOTSTRAP_SCOPES.
+    assert_equal %w[view_issues view_project view_wiki_pages view_issue_watchers view_time_entries view_private_notes],
+                 JSON.parse(response.body)['scopes_supported']
+  end
+
+  def test_protected_resource_adds_write_tool_scopes_when_writes_are_enabled
+    Setting.plugin_redmine_mcp_plugin =
+      RedmineMcpPlugin::Settings::DEFAULTS.merge('enabled' => '1', 'auth_oauth2' => '1', 'read_only' => '0')
+    Setting.clear_cache
+
+    get :protected_resource
+
+    assert_response :success
+    assert_equal %w[view_issues view_project view_wiki_pages view_issue_watchers view_time_entries view_private_notes
+                    add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private],
                  JSON.parse(response.body)['scopes_supported']
   end
 
@@ -49,7 +63,7 @@ class McpMetadataControllerTest < Redmine::ControllerTest
     get :authorization_server
 
     assert_response :success
-    assert_equal %w[view_issues view_project view_wiki_pages view_issue_watchers view_time_entries],
+    assert_equal %w[view_issues view_project view_wiki_pages view_issue_watchers view_time_entries view_private_notes],
                  JSON.parse(response.body)['scopes_supported']
   end
 

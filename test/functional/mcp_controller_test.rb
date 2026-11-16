@@ -8,11 +8,11 @@ class McpControllerTest < Redmine::ControllerTest
            :issues, :issue_statuses, :trackers, :enumerations, :enabled_modules
 
   # The bootstrap challenge advertises OAUTH_BOOTSTRAP_SCOPES: the three core read
-  # scopes plus the two read satellites (watchers, time entries) that ticket 07
-  # folds into bootstrap. No write scope and no view_private_notes.
+  # scopes, the two read satellites (watchers, time entries) that ticket 07 folds
+  # into bootstrap, and view_private_notes. No write scope.
   OAUTH_CHALLENGE =
     'Bearer realm="Redmine", resource_metadata="http://test.host/.well-known/oauth-protected-resource/mcp", ' \
-    'scope="view_issues view_project view_wiki_pages view_issue_watchers view_time_entries"'
+    'scope="view_issues view_project view_wiki_pages view_issue_watchers view_time_entries view_private_notes"'
 
   def setup
     Setting.rest_api_enabled = '1'
@@ -83,6 +83,16 @@ class McpControllerTest < Redmine::ControllerTest
 
     assert_response :unauthorized
     assert_equal OAUTH_CHALLENGE, response.headers['WWW-Authenticate']
+  end
+
+  def test_write_mode_challenge_includes_write_tool_scopes
+    enable_mcp('read_only' => '0')
+    post_mcp rpc('tools/list')
+
+    assert_response :unauthorized
+    assert_equal 'view_issues view_project view_wiki_pages view_issue_watchers view_time_entries view_private_notes ' \
+                 'add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private',
+                 response.headers['WWW-Authenticate'][/scope="([^"]*)"/, 1]
   end
 
   def test_invalid_api_key_is_rejected

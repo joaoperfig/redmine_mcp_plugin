@@ -35,8 +35,10 @@ module RedmineMcpPlugin
     # time-entry scopes point back to their issue/project foundation, but an
     # ordinary issue challenge does not pull those satellites in. `add_issue_notes`,
     # `set_notes_private`, `edit_wiki_pages`, `view_private_notes`, and `admin`
-    # deliberately have no outgoing correlation: private-note creation and
-    # administrator authority stay explicit sensitivity escalations. A correlated
+    # deliberately have no outgoing correlation: a step-up for one operation never
+    # pulls in private-note or administrator authority. Private-note scopes are
+    # still part of initial_scopes, so ordinary clients never need that step-up.
+    # A correlated
     # grant the user's role cannot exercise is inert, since effective authority is
     # the intersection of role permissions and token scopes.
     CORRELATED_SCOPES = {
@@ -50,7 +52,33 @@ module RedmineMcpPlugin
       manage_versions: %i[edit_wiki_pages].freeze
     }.freeze
 
+    # Write permissions some write tools need only for certain arguments (a
+    # private note through add_issue_note), so they cannot be derived from
+    # mcp_permission. They are requested up front with the write tools: private
+    # notes are routine on a ticket, and the user's role still decides whether
+    # they can set one.
+    INITIAL_WRITE_EXTRAS = %i[set_notes_private].freeze
+
     module_function
+
+    # Scopes a client should request when it first authorizes, advertised in the
+    # 401 challenge and in protected-resource metadata. Read-only mode keeps the
+    # read bootstrap set. With writes enabled, each registered write tool's base
+    # permission is added up front, because some MCP clients (claude.ai
+    # connectors) surface an insufficient_scope step-up to the user instead of
+    # re-authorizing, and every reconnect would then request the read set again.
+    # INITIAL_WRITE_EXTRAS join them; `admin` stays step-up only.
+    def initial_scopes
+      return OAUTH_BOOTSTRAP_SCOPES if Settings.read_only?
+
+      write_scopes = Registry.all.select(&:write?).filter_map(&:mcp_permission).map(&:to_sym)
+      write_scopes = (write_scopes + INITIAL_WRITE_EXTRAS).uniq
+      write_scopes.each do |scope|
+        # Fail closed, as challenge_scopes does: only declared write-tier scopes.
+        raise ArgumentError, "#{scope} is not a declared write scope" unless SCOPE_TIERS.fetch(scope) == :write
+      end
+      OAUTH_BOOTSTRAP_SCOPES + write_scopes.map(&:to_s)
+    end
 
     def header(permissions:, write:, resource_metadata:)
       scopes = permissions.flat_map { |permission| challenge_scopes(permission, write: write) }.uniq
