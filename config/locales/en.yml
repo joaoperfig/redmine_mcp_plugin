@@ -17,8 +17,23 @@ en:
       read_only: Read-only mode
       read_only_hint: "Hide and refuse every tool that creates or changes data. On by default."
       allowed_origins: Additional allowed origins
-      allowed_origins_hint: "One per line, e.g. https://app.example.com. This Redmine's own origin is always allowed. Requests with no Origin header - which is every non-browser MCP client - are unaffected."
+      allowed_origins_hint: "One per line, e.g. https://app.example.com. This Redmine's own origin is always allowed. Requests with no Origin header - the usual case for non-browser MCP clients - are unaffected."
       max_results: Maximum results per call
       max_results_hint: "Upper bound on rows any single tool may return. Capped at %{max}."
+      dcr_enabled: Enable dynamic client registration (RFC 7591)
+      dcr_enabled_hint: "Off by default. When on, opens an unauthenticated registration endpoint where any caller can register an OAuth2 client."
       rest_api_warning: "The REST API is disabled in Administration > Settings > API, which disables OAuth2, API key and HTTP Basic authentication for this endpoint too."
       no_auth_warning: "No authentication mode is enabled, so the endpoint will refuse every request."
+      tab_general: General
+      tab_prompts: Prompts
+      prompts_intro: "Text this server gives AI clients. Each field starts with the built-in default. A field left at its default keeps following it when the plugin is updated; clear a field to go back to the default."
+      server_instructions: Server instructions
+      server_instructions_hint: "Sent to every client when it connects. Most clients add it to the model's context for the whole conversation."
+      prompt_request_hint: "Write %{placeholder} where the user's request should go. Without it, the request is added at the end."
+      restore_default: Restore default
+      tab_tools: Tools
+      tools_intro: "What each tool tells AI clients about itself and its parameters. Only the descriptions are editable: parameter names, types and required parameters are fixed, since every call is checked against them. Every tool is listed, including ones read-only mode or a user's permissions hide. Clients usually fetch the tool list once per connection, so edits apply when they reconnect."
+      tool_description: Description
+      parameter_required: required
+      edited: edited
+      restore_defaults: Restore defaults

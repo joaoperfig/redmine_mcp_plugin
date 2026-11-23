@@ -2,26 +2,26 @@
 
 module RedmineMcpPlugin
   module Tools
-    class CreateIssue < Tool
-      tool 'create_issue',
-           title: 'Create issue',
-           description: 'Create a new issue in a project.',
-           permission: :add_issues,
-           write: true,
-           schema: {
-             'type' => 'object',
-             'properties' => {
-               'project' => { 'type' => %w[string integer],
-                             'description' => 'Project identifier or numeric id.' },
-               'subject' => { 'type' => 'string', 'description' => 'Issue subject.' },
-               'description' => { 'type' => 'string' },
-               'tracker' => { 'type' => 'string', 'description' => 'Tracker name. Defaults to the project default.' },
-               'priority' => { 'type' => 'string', 'description' => 'Priority name. Defaults to the Redmine default.' },
-               'assigned_to' => { 'type' => 'string', 'description' => 'Login of the user to assign to.' }
-             },
-             'required' => %w[project subject],
-             'additionalProperties' => false
-           }
+    class CreateIssue < Base
+      tool_name 'create_issue'
+      title 'Create issue'
+      description 'Create a new issue in a project.'
+      permission :add_issues
+      write true
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'project' => { 'type' => %w[string integer],
+                         'description' => 'Project identifier or numeric id.' },
+          'subject' => { 'type' => 'string', 'description' => 'Issue subject.' },
+          'description' => { 'type' => 'string' },
+          'tracker' => { 'type' => 'string', 'description' => 'Tracker name. Defaults to the project default.' },
+          'priority' => { 'type' => 'string', 'description' => 'Priority name. Defaults to the Redmine default.' },
+          'assigned_to' => { 'type' => 'string', 'description' => 'Login of the user to assign to.' }
+        },
+        'required' => %w[project subject],
+        'additionalProperties' => false
+      )
 
       private
 

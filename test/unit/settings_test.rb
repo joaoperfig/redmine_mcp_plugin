@@ -15,10 +15,22 @@ class RedmineMcpPluginSettingsTest < ActiveSupport::TestCase
     yield
   end
 
-  # The regression this whole module exists to prevent: before an administrator
-  # saves the form, Redmine hands back init.rb's defaults hash verbatim. If that
-  # hash is keyed by symbols, every string-keyed read returns nil and the plugin
-  # silently behaves as though everything is switched off.
+  def test_text_falls_back_to_the_default_when_blank_or_absent
+    with_settings_hash({}) { assert_equal 'built-in', S.text('prompt_x', 'built-in') }
+    with_settings_hash('prompt_x' => " \r\n ") { assert_equal 'built-in', S.text('prompt_x', 'built-in') }
+  end
+
+  def test_text_returns_an_edit_with_lf_line_breaks
+    with_settings_hash('prompt_x' => "line one\r\nline two") do
+      assert_equal "line one\nline two", S.text('prompt_x', 'built-in')
+    end
+  end
+
+  def test_server_instructions_default_and_override
+    with_settings_hash({}) { assert_equal RedmineMcpPlugin::McpServer::INSTRUCTIONS, S.server_instructions }
+    with_settings_hash('server_instructions' => 'Custom') { assert_equal 'Custom', S.server_instructions }
+  end
+
   def test_symbol_keyed_settings_are_readable
     with_settings_hash(enabled: 'true', read_only: 'false') do
       assert S.enabled?
@@ -33,13 +45,20 @@ class RedmineMcpPluginSettingsTest < ActiveSupport::TestCase
     end
   end
 
-  # Checkboxes post '1'/'0'; DEFAULTS uses 'true'/'false'. Both must work.
   def test_bool_accepts_both_encodings
     with_settings_hash('enabled' => 'true')  { assert S.enabled? }
     with_settings_hash('enabled' => '1')     { assert S.enabled? }
     with_settings_hash('enabled' => 'false') { assert_not S.enabled? }
     with_settings_hash('enabled' => '0')     { assert_not S.enabled? }
     with_settings_hash({})                   { assert_not S.enabled? }
+  end
+
+  def test_dcr_enabled_defaults_off_and_reads_both_key_styles
+    with_settings_hash({})                      { assert_not S.dcr_enabled? }
+    with_settings_hash(S::DEFAULTS)             { assert_not S.dcr_enabled? }
+    with_settings_hash(dcr_enabled: 'true')     { assert S.dcr_enabled? }
+    with_settings_hash('dcr_enabled' => '1')    { assert S.dcr_enabled? }
+    with_settings_hash('dcr_enabled' => '0')    { assert_not S.dcr_enabled? }
   end
 
   def test_max_results_is_capped_and_defaulted

@@ -1,13 +1,8 @@
 # frozen_string_literal: true
 
 module RedmineMcpPlugin
-  # Resolves an HTTP request to a Redmine User, using only mechanisms Redmine
-  # core already implements, and only the ones an administrator has switched on.
-  #
-  # Nothing here invents a credential format, a token store, or a session. Each
-  # branch is the same code path core's ApplicationController#find_current_user
-  # takes; the plugin's contribution is making each branch individually
-  # switchable, and refusing to fall through to anything not enabled.
+  # Resolves requests through enabled Redmine authentication mechanisms without
+  # introducing plugin-specific credentials or fallback to disabled modes.
   class Authenticator
     Result = Struct.new(:user, :mode, :scopes, :error, :status, keyword_init: true) do
       def ok? = user.present?
@@ -51,14 +46,8 @@ module RedmineMcpPlugin
 
     private
 
-    # --- OAuth2, via Redmine core's Doorkeeper provider ---------------------
-    #
-    # The recommended mode. The access token resolves to a real user AND to a
-    # set of scopes, and core's Redmine::AccessControl registers every Redmine
-    # permission name as an OAuth scope. Assigning oauth_scope here is what
-    # makes User#allowed_to? intersect role permissions with token scopes, and
-    # what makes User#admin? return false for an admin whose token lacks the
-    # 'admin' scope.
+    # Resolves Redmine's OAuth2 tokens and applies their scopes to permission
+    # checks, including User#admin?.
     def try_oauth2
       return nil unless bearer_token.present?
 
@@ -71,15 +60,11 @@ module RedmineMcpPlugin
 
       scopes = access_token.scopes.all.map(&:to_sym)
       user.oauth_scope = scopes
-      # Returned alongside the user because core's User exposes oauth_scope as
-      # attr_writer only -- there is no reader to get them back from.
+      # User exposes oauth_scope as a writer only, so retain scopes separately.
       success(user, :oauth2, scopes)
     end
 
-    # --- API key ------------------------------------------------------------
-    #
-    # Same header core accepts. Carries the user's whole permission set: there
-    # is no scope to narrow it, which is why the README steers people to OAuth2.
+    # API keys carry the user's full permissions and cannot be scope-limited.
     def try_api_key
       key = @request.headers['X-Redmine-API-Key'].presence || @controller.params[:key].presence
       return nil if key.blank?
@@ -90,7 +75,6 @@ module RedmineMcpPlugin
       success(user, :api_key)
     end
 
-    # --- HTTP Basic ---------------------------------------------------------
     def try_basic
       authorization = @request.authorization.to_s
       return nil unless /\ABasic /i.match?(authorization)
@@ -117,12 +101,8 @@ module RedmineMcpPlugin
       success(user, :basic)
     end
 
-    # --- Existing browser session ------------------------------------------
-    #
-    # Ambient credentials. This is the only mode a malicious web page could
-    # cause a logged-in user's browser to send, so it is the only one that needs
-    # cross-site request forgery protection. The controller enforces the Origin
-    # check before we get here; this method only resolves the cookie.
+    # Resolves the ambient browser credential after the controller's mandatory
+    # Origin check.
     def try_session
       user_id = @controller.session[:user_id]
       return nil if user_id.blank?

@@ -2,31 +2,26 @@
 
 module RedmineMcpPlugin
   module Tools
-    class ListUsers < Tool
-      tool 'list_users',
-           title: 'List users',
-           description: 'Search the users visible to the authenticated user, by name or login.',
-           permission: nil,
-           schema: {
-             'type' => 'object',
-             'properties' => {
-               'name' => { 'type' => 'string', 'description' => 'Case-insensitive substring of login, first or last name.' },
-               'offset' => { 'type' => 'integer', 'minimum' => 0,
-                             'description' => 'Rows to skip, for paging past the server cap. Defaults to 0.' },
-               'limit' => { 'type' => 'integer', 'minimum' => 1 }
-             },
-             'additionalProperties' => false
-           }
+    class ListUsers < Base
+      tool_name 'list_users'
+      title 'List users'
+      description 'Search the users visible to the authenticated user, by name or login.'
+      input_schema(
+        'type' => 'object',
+        'properties' => {
+          'name' => { 'type' => 'string', 'description' => 'Case-insensitive substring of login, first or last name.' },
+          'offset' => { 'type' => 'integer', 'minimum' => 0,
+                        'description' => 'Rows to skip, for paging past the server cap. Defaults to 0.' },
+          'limit' => { 'type' => 'integer', 'minimum' => 1 }
+        },
+        'additionalProperties' => false
+      )
 
       private
 
       def perform(arguments)
-        # Principal.visible, not User.all. Redmine's own users list is
-        # require_admin, and each role carries a users_visibility setting of
-        # 'all' or 'members_of_visible_projects'. Enumerating User.all here
-        # would hand the whole directory -- logins, names, last login times --
-        # to any authenticated caller, which is strictly more than the same
-        # user can see through the web interface or the REST API.
+        # Principal.visible enforces role-level users_visibility; User.all would
+        # expose directory records the caller cannot see elsewhere in Redmine.
         scope = Principal.visible(user).where(type: 'User').active
 
         if (needle = arguments['name'].presence)
