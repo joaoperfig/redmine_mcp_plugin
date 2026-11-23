@@ -28,8 +28,13 @@ module RedmineMcpPlugin
       private
 
       def perform(arguments)
+        # Issue.visible checks roles only. Issue#visible? goes through
+        # allowed_to?, so it also applies the token's scopes: a token without
+        # view_issues cannot write to an issue it could not read. view_issues
+        # cannot join required_permissions instead, because a write-tier
+        # challenge must not carry a read scope.
         issue = Issue.visible(user).find_by(id: arguments['id'].to_i)
-        raise ToolError, "No visible issue with id #{arguments['id'].inspect}" if issue.nil?
+        raise ToolError, "No visible issue with id #{arguments['id'].inspect}" unless issue&.visible?(user)
 
         authorize!(:add_issue_notes, issue.project)
         raise ToolError, 'notes must not be empty' if arguments['notes'].to_s.strip.empty?

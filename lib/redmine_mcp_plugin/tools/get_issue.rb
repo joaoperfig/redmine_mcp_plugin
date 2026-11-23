@@ -116,9 +116,14 @@ module RedmineMcpPlugin
       end
 
       # Journal#notes can be private (private_notes), and core gates that on
-      # :view_private_notes. Journal.visible applies exactly that rule.
+      # :view_private_notes. Journal.visible applies that rule from roles only,
+      # in SQL that ignores OAuth scopes, so the scope-aware allowed_to? check
+      # follows it, as in core's Issue#visible_journals_with_index.
       def journals_for(issue)
-        issue.journals.visible(user).includes(:user).order(:created_on).map do |journal|
+        private_notes = user.allowed_to?(:view_private_notes, issue.project)
+        issue.journals.visible(user).includes(:user).order(:created_on).filter_map do |journal|
+          next if journal.private_notes? && journal.user_id != user.id && !private_notes
+
           {
             id: journal.id,
             user: identity(journal.user),

@@ -437,6 +437,44 @@ class McpControllerTest < Redmine::ControllerTest
     assert_equal Principal.visible(user).where(type: 'User').active.count, total
   end
 
+  # Journal.visible grants private notes from roles alone; the token's
+  # view_private_notes scope must narrow it as core's issue page does.
+  def test_get_issue_hides_others_private_notes_from_a_token_without_view_private_notes
+    Role.find(1).add_permission!(:view_private_notes)
+    issue = Issue.find(1)
+    others = Journal.create!(journalized: issue, user: User.find(3), notes: 'Private by other', private_notes: true)
+    own = Journal.create!(journalized: issue, user: User.find(2), notes: 'Private by self', private_notes: true)
+    call = rpc('tools/call', { 'name' => 'get_issue', 'arguments' => { 'id' => issue.id } })
+
+    post_mcp call, oauth_headers(User.find(2), scopes: 'view_issues view_project')
+    ids = json_body['result']['structuredContent']['journals'].pluck('id')
+    assert_not_includes ids, others.id
+    assert_includes ids, own.id
+
+    post_mcp call, oauth_headers(User.find(2), scopes: 'view_issues view_project view_private_notes')
+    assert_includes json_body['result']['structuredContent']['journals'].pluck('id'), others.id
+  end
+
+  # Issue.visible ignores OAuth scopes, so add_issue_note must not let a token
+  # without view_issues write to an issue it could not read.
+  def test_add_issue_note_refuses_a_token_without_view_issues
+    enable_mcp('read_only' => '0')
+    issue = Issue.find(1)
+    call = rpc('tools/call', { 'name' => 'add_issue_note', 'arguments' => { 'id' => issue.id, 'notes' => 'Hi' } })
+
+    assert_no_difference -> { issue.journals.count } do
+      post_mcp call, oauth_headers(User.find(2), scopes: 'add_issue_notes')
+    end
+    assert_response :success
+    assert json_body['result']['isError']
+    assert_match(/No visible issue/, json_body['result']['content'].first['text'])
+
+    assert_difference -> { issue.journals.count }, 1 do
+      post_mcp call, oauth_headers(User.find(2), scopes: 'view_issues add_issue_notes')
+    end
+    assert_not json_body.dig('result', 'isError')
+  end
+
   private
 
   def initialize_params(version)
