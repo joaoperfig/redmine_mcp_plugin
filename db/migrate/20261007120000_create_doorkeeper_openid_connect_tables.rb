@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class CreateDoorkeeperOpenidConnectTables < ActiveRecord::Migration[8.1]
+class CreateDoorkeeperOpenidConnectTables < ActiveRecord::Migration[7.2]
   def up
     unless table_exists?(:oauth_openid_requests)
       create_table :oauth_openid_requests do |t|
