@@ -85,6 +85,10 @@ class RedmineMcpPluginDcrPolicyTest < ActiveSupport::TestCase
   def test_access_grant_has_openid_request_association_exactly_once
     skip 'doorkeeper-openid_connect unavailable' unless DCR.available?
 
+    # Production configures OIDC while drawing routes at boot. Rails 8 draws
+    # them lazily in tests, and until then the gem only queues the grant model
+    # instead of wiring the association, so draw them as production would.
+    Rails.application.try(:reload_routes_unless_loaded)
     grant = Doorkeeper.config.access_grant_model
     DCR.attach_openid_request!
     DCR.attach_openid_request!
