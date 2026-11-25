@@ -27,7 +27,8 @@ module RedmineMcpPlugin
       add_issue_notes: :write,
       set_notes_private: :write,
       manage_versions: :write,
-      edit_wiki_pages: :write
+      edit_wiki_pages: :write,
+      log_time: :write
     }.freeze
 
     # One-hop, directional correlations added to a challenge so a step-up also

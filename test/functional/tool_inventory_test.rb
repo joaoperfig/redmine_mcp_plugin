@@ -162,6 +162,15 @@ class RedmineMcpPluginToolInventoryTest < ActiveSupport::TestCase
 
     assert_not_includes names, 'create_version'
     assert_not_includes names, 'create_wiki_page'
+    assert_not_includes names, 'create_time_entry'
+  end
+
+  def test_create_time_entry_is_a_non_idempotent_non_destructive_write
+    annotations = RedmineMcpPlugin::Tools::CreateTimeEntry.to_h[:annotations]
+
+    assert_not annotations[:readOnlyHint]
+    assert_not annotations[:destructiveHint]
+    assert_not annotations[:idempotentHint], 'create-only time log is not idempotent'
   end
 
   def test_create_wiki_page_advertises_idempotent_non_destructive_write
