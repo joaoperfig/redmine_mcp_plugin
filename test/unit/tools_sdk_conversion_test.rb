@@ -31,12 +31,12 @@ class RedmineMcpPluginToolsSdkConversionTest < ActiveSupport::TestCase
     end
   end
 
-  # Expected to be sixteen (12 read + 4 write); a tool silently dropped from or
+  # Expected to be seventeen (12 read + 5 write); a tool silently dropped from or
   # added to the registry would be a security-relevant regression, so the count
   # is pinned.
-  def test_registry_exposes_all_sixteen_tools
-    assert_equal 16, ALL_TOOLS.size
-    assert_equal 4, ALL_TOOLS.count(&:write?)
+  def test_registry_exposes_all_seventeen_tools
+    assert_equal 17, ALL_TOOLS.size
+    assert_equal 5, ALL_TOOLS.count(&:write?)
   end
 
   # Each tool's descriptor comes from the SDK DSL now. Constructing to_h forces

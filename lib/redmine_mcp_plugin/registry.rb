@@ -22,7 +22,8 @@ module RedmineMcpPlugin
           Tools::CreateIssue,
           Tools::AddIssueNote,
           Tools::CreateVersion,
-          Tools::CreateWikiPage
+          Tools::CreateWikiPage,
+          Tools::CreateTimeEntry
         ]
       end
     end
