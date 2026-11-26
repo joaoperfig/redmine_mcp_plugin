@@ -110,7 +110,7 @@ The protected-resource metadata and the `/mcp` authentication challenge advertis
 `view_issues view_project view_wiki_pages view_issue_watchers view_time_entries view_private_notes`
 as the read bootstrap scopes for an initial client handshake. When read-only mode
 is off, they also advertise the write scopes
-(`add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private`),
+(`add_issues add_issue_notes log_time manage_versions edit_wiki_pages set_notes_private`),
 so clients that never act on a step-up challenge, such as claude.ai connectors,
 still receive a write-capable token. Private-note scopes are included because
 private notes are routine team discussion; the user's role still decides what
@@ -146,9 +146,16 @@ token scopes; tools denied by the user's role remain hidden.
 | Issues | `search_issues`, `get_issue` | `view_issues` |
 | Wiki pages | `list_wiki_pages`, `get_wiki_page` | `view_wiki_pages` |
 | Metadata | `list_enumerations` | None |
+| Time entries | `list_time_entry_activities`, `list_time_entry_fields` | None; project-scoped results follow project visibility |
 | Users | `list_users` | Filtered by Redmine principal visibility |
 | Create an issue | `create_issue` | `add_issues`; read-only mode must be disabled |
 | Add an issue note | `add_issue_note` | `add_issue_notes`; private notes also require `set_notes_private`; read-only mode must be disabled |
+| Log time | `log_time` | `log_time` on the issue's project; supports time-entry custom fields; the entry is always attributed to the authenticated user; read-only mode must be disabled |
+
+`list_time_entry_fields` resolves an issue or project and returns the required
+time-log fields plus the time-entry custom fields the caller can see, including
+each field's id, name, format, required flag, default and possible values. Pass
+those values to `log_time` as `custom_fields`, keyed by field id or name.
 
 Tool arguments are validated against their declared schemas. The paginated
 tools (`list_projects`, `search_issues`, `list_wiki_pages`, and `list_users`)

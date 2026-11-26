@@ -68,6 +68,18 @@ class RedmineMcpPluginScopeChallengeTest < ActiveSupport::TestCase
     assert_includes scopes, 'view_project'
   end
 
+  def test_time_logging_is_a_write_tier_scope
+    assert_equal :write, Challenge::SCOPE_TIERS.fetch(:log_time)
+
+    header = Challenge.header(
+      permissions: %i[log_time],
+      write: true,
+      resource_metadata: 'https://example.test/meta'
+    )
+
+    assert_equal 'log_time', scope_of(header)
+  end
+
   def test_undeclared_permission_fails_closed
     assert_raises(KeyError) do
       Challenge.header(permissions: %i[not_a_real_permission], write: false, resource_metadata: 'x')
@@ -89,7 +101,7 @@ class RedmineMcpPluginScopeChallengeTest < ActiveSupport::TestCase
   def test_initial_scopes_add_write_tool_scopes_when_writes_are_enabled
     with_mcp_settings('read_only' => '0') do
       assert_equal RedmineMcpPlugin::OAUTH_BOOTSTRAP_SCOPES +
-                     %w[add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private],
+                     %w[add_issues add_issue_notes log_time manage_versions edit_wiki_pages set_notes_private],
                    Challenge.initial_scopes
     end
   end

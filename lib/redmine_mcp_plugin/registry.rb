@@ -15,12 +15,15 @@ module RedmineMcpPlugin
           Tools::ListWikiPages,
           Tools::GetWikiPage,
           Tools::ListEnumerations,
+          Tools::ListTimeEntryActivities,
+          Tools::ListTimeEntryFields,
           Tools::ListStatuses,
           Tools::ListVersions,
           Tools::ListUsers,
           Tools::GetGroup,
           Tools::CreateIssue,
           Tools::AddIssueNote,
+          Tools::LogTime,
           Tools::CreateVersion,
           Tools::CreateWikiPage
         ]
