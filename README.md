@@ -110,7 +110,7 @@ The protected-resource metadata and the `/mcp` authentication challenge advertis
 `view_issues view_project view_wiki_pages view_issue_watchers view_time_entries view_private_notes`
 as the read bootstrap scopes for an initial client handshake. When read-only mode
 is off, they also advertise the write scopes
-(`add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private`),
+(`add_issues add_issue_notes log_time manage_versions edit_wiki_pages set_notes_private`),
 so clients that never act on a step-up challenge, such as claude.ai connectors,
 still receive a write-capable token. Private-note scopes are included because
 private notes are routine team discussion; the user's role still decides what

@@ -101,7 +101,7 @@ class RedmineMcpPluginScopeChallengeTest < ActiveSupport::TestCase
   def test_initial_scopes_add_write_tool_scopes_when_writes_are_enabled
     with_mcp_settings('read_only' => '0') do
       assert_equal RedmineMcpPlugin::OAUTH_BOOTSTRAP_SCOPES +
-                     %w[add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private],
+                     %w[add_issues add_issue_notes log_time manage_versions edit_wiki_pages set_notes_private],
                    Challenge.initial_scopes
     end
   end

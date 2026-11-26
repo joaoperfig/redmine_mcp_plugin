@@ -91,7 +91,7 @@ class McpControllerTest < Redmine::ControllerTest
 
     assert_response :unauthorized
     assert_equal 'view_issues view_project view_wiki_pages view_issue_watchers view_time_entries view_private_notes ' \
-                 'add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private',
+                 'add_issues add_issue_notes log_time manage_versions edit_wiki_pages set_notes_private',
                  response.headers['WWW-Authenticate'][/scope="([^"]*)"/, 1]
   end
 
