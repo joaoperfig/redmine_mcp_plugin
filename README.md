@@ -146,9 +146,16 @@ token scopes; tools denied by the user's role remain hidden.
 | Issues | `search_issues`, `get_issue` | `view_issues` |
 | Wiki pages | `list_wiki_pages`, `get_wiki_page` | `view_wiki_pages` |
 | Metadata | `list_enumerations` | None |
+| Time entries | `list_time_entry_activities`, `list_time_entry_fields` | None; project-scoped results follow project visibility |
 | Users | `list_users` | Filtered by Redmine principal visibility |
 | Create an issue | `create_issue` | `add_issues`; read-only mode must be disabled |
 | Add an issue note | `add_issue_note` | `add_issue_notes`; private notes also require `set_notes_private`; read-only mode must be disabled |
+| Log time | `log_time` | `log_time` on the issue's project; supports time-entry custom fields; the entry is always attributed to the authenticated user; read-only mode must be disabled |
+
+`list_time_entry_fields` resolves an issue or project and returns the required
+time-log fields plus the time-entry custom fields the caller can see, including
+each field's id, name, format, required flag, default and possible values. Pass
+those values to `log_time` as `custom_fields`, keyed by field id or name.
 
 Tool arguments are validated against their declared schemas. The paginated
 tools (`list_projects`, `search_issues`, `list_wiki_pages`, and `list_users`)

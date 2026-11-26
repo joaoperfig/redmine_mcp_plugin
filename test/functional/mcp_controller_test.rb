@@ -305,6 +305,22 @@ class McpControllerTest < Redmine::ControllerTest
     )
   end
 
+  def test_time_logging_challenge_requests_the_log_time_scope
+    enable_mcp('read_only' => '0')
+    oauth = oauth_headers(User.find(2), scopes: 'view_issues')
+
+    post_mcp rpc('tools/call', { 'name' => 'log_time',
+                                 'arguments' => { 'issue_id' => 1, 'hours' => 1 } }), oauth
+
+    assert_response :forbidden
+    assert_equal(
+      'Bearer error="insufficient_scope", scope="log_time", ' \
+      'resource_metadata="http://test.host/.well-known/oauth-protected-resource/mcp", ' \
+      'error_description="The access token lacks the scope required for this operation"',
+      response.headers['WWW-Authenticate']
+    )
+  end
+
   def test_private_issue_note_challenge_includes_every_required_scope
     enable_mcp('read_only' => '0')
     oauth = oauth_headers(User.find(2), scopes: 'add_issue_notes')
