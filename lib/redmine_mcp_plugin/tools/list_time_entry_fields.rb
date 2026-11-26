@@ -57,9 +57,12 @@ module RedmineMcpPlugin
         [project, issue]
       end
 
+      # Issue#visible? applies the token's scopes on top of the role check in
+      # Issue.visible, so a token without view_issues cannot use this to learn
+      # which project an issue belongs to.
       def visible_issue(identifier)
         issue = Issue.visible(user).find_by(id: identifier.to_i)
-        raise ToolError, "No visible issue with id #{identifier.inspect}" if issue.nil?
+        raise ToolError, "No visible issue with id #{identifier.inspect}" unless issue&.visible?(user)
 
         issue
       end

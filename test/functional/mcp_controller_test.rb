@@ -491,6 +491,42 @@ class McpControllerTest < Redmine::ControllerTest
     assert_not json_body.dig('result', 'isError')
   end
 
+  # Issue.visible ignores OAuth scopes, so log_time must not let a token
+  # without view_issues log time on an issue it could not read.
+  def test_log_time_refuses_a_token_without_view_issues
+    enable_mcp('read_only' => '0')
+    issue = Issue.find(1)
+    call = rpc('tools/call', { 'name' => 'log_time', 'arguments' => { 'issue_id' => issue.id, 'hours' => 1 } })
+
+    assert_no_difference -> { TimeEntry.where(issue_id: issue.id).count } do
+      post_mcp call, oauth_headers(User.find(2), scopes: 'log_time')
+    end
+    assert_response :success
+    assert json_body['result']['isError']
+    assert_match(/No visible issue/, json_body['result']['content'].first['text'])
+
+    assert_difference -> { TimeEntry.where(issue_id: issue.id).count }, 1 do
+      post_mcp call, oauth_headers(User.find(2), scopes: 'view_issues log_time')
+    end
+    assert_not json_body.dig('result', 'isError')
+  end
+
+  # list_time_entry_fields declares no permission, so the issue lookup is the
+  # only gate keeping a token without view_issues from learning which project
+  # an issue belongs to.
+  def test_list_time_entry_fields_refuses_an_issue_the_token_cannot_view
+    call = rpc('tools/call', { 'name' => 'list_time_entry_fields', 'arguments' => { 'issue_id' => 1 } })
+
+    post_mcp call, oauth_headers(User.find(2), scopes: 'view_project')
+    assert_response :success
+    assert json_body['result']['isError']
+    assert_match(/No visible issue/, json_body['result']['content'].first['text'])
+
+    post_mcp call, oauth_headers(User.find(2), scopes: 'view_issues view_project')
+    assert_not json_body.dig('result', 'isError')
+    assert_equal 1, json_body['result']['structuredContent']['issue_id']
+  end
+
   private
 
   def initialize_params(version)

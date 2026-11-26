@@ -38,8 +38,11 @@ module RedmineMcpPlugin
       private
 
       def perform(arguments)
+        # Issue.visible checks roles only; Issue#visible? also applies the
+        # token's scopes, so a token without view_issues cannot log time on an
+        # issue it could not read.
         issue = Issue.visible(user).find_by(id: arguments['issue_id'].to_i)
-        raise ToolError, "No visible issue with id #{arguments['issue_id'].inspect}" if issue.nil?
+        raise ToolError, "No visible issue with id #{arguments['issue_id'].inspect}" unless issue&.visible?(user)
 
         authorize!(:log_time, issue.project)
 
