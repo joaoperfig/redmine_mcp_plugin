@@ -21,6 +21,7 @@ module RedmineMcpPlugin
           Tools::ListVersions,
           Tools::ListUsers,
           Tools::GetGroup,
+          Tools::ListIssueCustomFields,
           Tools::CreateIssue,
           Tools::AddIssueNote,
           Tools::LogTime,

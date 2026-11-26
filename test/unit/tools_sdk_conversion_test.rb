@@ -31,12 +31,26 @@ class RedmineMcpPluginToolsSdkConversionTest < ActiveSupport::TestCase
     end
   end
 
-  # Expected to be nineteen (14 read + 5 write); a tool silently dropped from or
+  # Expected to be twenty (15 read + 5 write); a tool silently dropped from or
   # added to the registry would be a security-relevant regression, so the count
   # is pinned.
-  def test_registry_exposes_all_nineteen_tools
-    assert_equal 19, ALL_TOOLS.size
+  def test_registry_exposes_all_twenty_tools
+    assert_equal 20, ALL_TOOLS.size
     assert_equal 5, ALL_TOOLS.count(&:write?)
+  end
+
+  # McpController builds a step-up challenge in the tool's own tier from its
+  # declared permission. A read tool declaring a write permission (or the
+  # reverse) makes ScopeChallenge raise, turning a missing scope into a 500.
+  def test_every_declared_permission_matches_the_tools_tier
+    ALL_TOOLS.each do |tool|
+      next if tool.mcp_permission.nil?
+
+      expected = tool.write? ? :write : :read
+      assert_equal expected,
+                   RedmineMcpPlugin::ScopeChallenge::SCOPE_TIERS.fetch(tool.mcp_permission.to_sym),
+                   "#{tool.to_h[:name]} declares #{tool.mcp_permission}, which is not a #{expected} scope"
+    end
   end
 
   # Each tool's descriptor comes from the SDK DSL now. Constructing to_h forces

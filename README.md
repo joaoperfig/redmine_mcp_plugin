@@ -148,7 +148,8 @@ token scopes; tools denied by the user's role remain hidden.
 | Metadata | `list_enumerations` | None |
 | Time entries | `list_time_entry_activities`, `list_time_entry_fields` | None; project-scoped results follow project visibility |
 | Users | `list_users` | Filtered by Redmine principal visibility |
-| Create an issue | `create_issue` | `add_issues`; read-only mode must be disabled |
+| Issue custom fields | `list_issue_custom_fields` | `view_issues`, plus `add_issues` on the project |
+| Create an issue | `create_issue` (optional `custom_fields`, by id or name; see `list_issue_custom_fields`) | `add_issues`; read-only mode must be disabled |
 | Add an issue note | `add_issue_note` | `add_issue_notes`; private notes also require `set_notes_private`; read-only mode must be disabled |
 | Log time | `log_time` | `log_time` on the issue's project; supports time-entry custom fields; the entry is always attributed to the authenticated user; read-only mode must be disabled |
 
