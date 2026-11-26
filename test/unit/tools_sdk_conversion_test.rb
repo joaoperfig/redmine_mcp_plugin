@@ -39,6 +39,20 @@ class RedmineMcpPluginToolsSdkConversionTest < ActiveSupport::TestCase
     assert_equal 4, ALL_TOOLS.count(&:write?)
   end
 
+  # McpController builds a step-up challenge in the tool's own tier from its
+  # declared permission. A read tool declaring a write permission (or the
+  # reverse) makes ScopeChallenge raise, turning a missing scope into a 500.
+  def test_every_declared_permission_matches_the_tools_tier
+    ALL_TOOLS.each do |tool|
+      next if tool.mcp_permission.nil?
+
+      expected = tool.write? ? :write : :read
+      assert_equal expected,
+                   RedmineMcpPlugin::ScopeChallenge::SCOPE_TIERS.fetch(tool.mcp_permission.to_sym),
+                   "#{tool.to_h[:name]} declares #{tool.mcp_permission}, which is not a #{expected} scope"
+    end
+  end
+
   # Each tool's descriptor comes from the SDK DSL now. Constructing to_h forces
   # the input schema through the SDK's 2020-12 metaschema validation, so a
   # malformed schema would raise here.

@@ -7,7 +7,11 @@ module RedmineMcpPlugin
       title 'List issue custom fields'
       description 'List the custom fields you can set when creating an issue in a project, with their ' \
                   'required flag and allowed values. Pass the result to create_issue as custom_fields.'
-      permission :add_issues
+      # A read tool must declare a read-tier permission: the HTTP gate builds a
+      # read step-up challenge from it, and ScopeChallenge refuses to put a
+      # write scope such as add_issues in one. add_issues is checked per project
+      # in #perform instead, where a token without it gets a tool error.
+      permission :view_issues
       input_schema(
         'type' => 'object',
         'properties' => {

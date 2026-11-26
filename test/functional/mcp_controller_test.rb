@@ -5,7 +5,7 @@ require File.expand_path('../test_helper', __dir__)
 class McpControllerTest < Redmine::ControllerTest
   tests McpController
   fixtures :projects, :users, :email_addresses, :roles, :members, :member_roles,
-           :issues, :issue_statuses, :trackers, :enumerations, :enabled_modules
+           :issues, :issue_statuses, :trackers, :projects_trackers, :enumerations, :enabled_modules
 
   # The bootstrap challenge advertises OAUTH_BOOTSTRAP_SCOPES: the three core read
   # scopes plus the two read satellites (watchers, time entries) that ticket 07
@@ -309,6 +309,23 @@ class McpControllerTest < Redmine::ControllerTest
       'error_description="The access token lacks the scope required for this operation"',
       response.headers['WWW-Authenticate']
     )
+  end
+
+  # A token issued in read-only mode carries only read scopes. The custom field
+  # lookup must refuse it as a tool error rather than build a read challenge
+  # for the write-tier add_issues scope, which ScopeChallenge rejects.
+  def test_list_issue_custom_fields_without_add_issues_scope_is_a_tool_error
+    call = rpc('tools/call', { 'name' => 'list_issue_custom_fields', 'arguments' => { 'project' => 'ecookbook' } })
+
+    post_mcp call, oauth_headers(User.find(2), scopes: 'view_issues view_project')
+    assert_response :success
+    assert json_body['result']['isError']
+    assert_match(/permission/i, json_body['result']['content'].first['text'])
+
+    post_mcp call, oauth_headers(User.find(2), scopes: 'view_issues view_project add_issues')
+    assert_response :success
+    assert_not json_body.dig('result', 'isError')
+    assert_equal 'ecookbook', json_body['result']['structuredContent']['project_identifier']
   end
 
   def test_oauth_administrator_without_a_grantable_role_is_challenged_for_admin
