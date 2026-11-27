@@ -8,27 +8,20 @@ module RedmineMcpPlugin
     # access of its own. The read tools the rendered instructions invoke stay
     # independently authorized, so a prompt cannot widen what its caller may see.
     #
-    # Subclasses declare the SDK prompt metadata (`prompt_name`, `title`,
-    # `description`, `arguments`), a `DEFAULT_TEXT`, and the class methods
-    # `template` and `request_section`.
+    # `Prompts.build` creates one anonymous subclass per stored record and
+    # supplies its instruction text and template. The named subclasses in this
+    # directory are not mounted directly; they only provide the metadata and
+    # `DEFAULT_TEXT` used to seed the prompts table and to carry an upgrade's
+    # existing settings text forward.
     #
-    # The text served is the administrator's from the settings page's Prompts
-    # tab, falling back to `DEFAULT_TEXT`. `REQUEST_PLACEHOLDER` marks where the
-    # rendered request section goes; a text without it gets the section
-    # appended, so an edit can never drop the caller's request or the framing
-    # that marks it as data rather than instructions.
+    # `REQUEST_PLACEHOLDER` marks where the rendered request section goes; text
+    # without it gets the section appended, so an edit can never drop the
+    # caller's request or the framing that marks it as data rather than
+    # instructions.
     class Base < MCP::Prompt
       REQUEST_PLACEHOLDER = '{{request}}'
 
       class << self
-        def setting_key
-          "prompt_#{name_value}"
-        end
-
-        def instruction_text
-          Settings.text(setting_key, self::DEFAULT_TEXT)
-        end
-
         private
 
         # The block form of sub keeps backslash sequences in the request, such

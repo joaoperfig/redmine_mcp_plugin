@@ -19,12 +19,13 @@
 
 <%= javascript_tag do %>
   $(function () {
-    // The Prompts and Tools tabs show each text in force, and carry its
-    // built-in default in data-default. A field still equal to its default is
-    // blanked before submitting, so nothing is stored for it and
-    // Settings.text keeps following the default as it changes between
-    // releases. dataset rather than jQuery's .data(), which would parse a
-    // default that happens to look like JSON.
+    // The server-instructions field and the Tools tab show each text in force
+    // and carry its built-in default in data-default. A field still equal to its
+    // default is blanked before submitting, so nothing is stored for it and
+    // Settings.text keeps following the default as it changes between releases.
+    // Prompt bodies are stored records, so they carry no data-default. dataset
+    // rather than jQuery's .data(), which would parse a default that happens to
+    // look like JSON.
     var fields = $('textarea[data-default]');
     var trimmed = function (text) { return text.replace(/\s+$/, ''); };
 

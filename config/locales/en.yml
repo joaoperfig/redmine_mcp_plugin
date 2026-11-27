@@ -29,9 +29,17 @@ en:
       no_auth_warning: "No authentication mode is enabled, so the endpoint will refuse every request."
       tab_general: General
       tab_prompts: Prompts
-      prompts_intro: "Text this server gives AI clients. Each field starts with the built-in default. A field left at its default keeps following it when the plugin is updated; clear a field to go back to the default."
+      prompts_intro: "Prompts are stored in the database and offered to every authenticated user. Add, rename, or delete them here; their instructions name read tools that stay independently authorized."
       server_instructions: Server instructions
       server_instructions_hint: "Sent to every client when it connects. Most clients add it to the model's context for the whole conversation."
+      prompt_name: Name
+      prompt_machine_name: Machine name
+      prompt_machine_name_hint: "Lower-case letters, numbers and underscores only. This is the name MCP clients use to invoke the prompt."
+      prompt_description: Description
+      prompt_text: Prompt
+      prompt_new: New prompt
+      prompt_untitled: Untitled prompt
+      prompt_delete_confirm: Delete this prompt?
       prompt_request_hint: "Write %{placeholder} where the user's request should go. Without it, the request is added at the end."
       restore_default: Restore default
       tab_tools: Tools

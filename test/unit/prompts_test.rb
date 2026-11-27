@@ -3,13 +3,50 @@
 require File.expand_path('../test_helper', __dir__)
 
 # Exercises the prompt surface through MCP::Server#handle in isolation, the same
-# transport-free seam the controller uses. These cover listing, rendering, and the
-# free-text embedding behavior at the prompt boundary.
+# transport-free seam the controller uses. These cover discovery from the
+# database, rendering, and the free-text embedding behavior at the prompt boundary.
 class RedmineMcpPluginPromptsTest < ActiveSupport::TestCase
-  def test_registry_exposes_both_prompts
+  def setup
+    ensure_default_prompts
+  end
+
+  def test_registry_exposes_the_seeded_defaults
     names = RedmineMcpPlugin::Prompts.all.map(&:name_value)
 
     assert_equal %w[generate_changelog qa_ticket_history_report], names
+  end
+
+  def test_an_empty_prompt_table_is_supported
+    RedmineMcpPlugin::Prompt.delete_all
+
+    assert_equal [], RedmineMcpPlugin::Prompts.all
+    assert_equal [], server.handle(request('prompts/list'))[:result][:prompts]
+    assert_not_nil get_prompt('generate_changelog', {})[:error]
+  end
+
+  def test_all_reads_each_prompt_from_the_database
+    RedmineMcpPlugin::Prompt.create!(
+      name: 'Time entry note', machine_name: 'enter_time',
+      description: 'Draft a note from the current ticket.', prompt: 'Log the work.'
+    )
+
+    names = RedmineMcpPlugin::Prompts.all.map(&:name_value)
+
+    assert_includes names, 'enter_time'
+    assert_equal 3, names.size
+  end
+
+  def test_a_renamed_prompt_is_served_under_its_new_name
+    prompt = RedmineMcpPlugin::Prompt.find_by!(machine_name: 'generate_changelog')
+    prompt.update!(name: 'Enter time', machine_name: 'enter_time',
+                   description: 'Draft a time entry.', prompt: 'Log the work.')
+
+    prompts = server.handle(request('prompts/list'))[:result][:prompts]
+    entry = prompts.find { |record| record[:name] == 'enter_time' }
+
+    assert_equal 'Enter time', entry[:title]
+    assert_equal 'Draft a time entry.', entry[:description]
+    assert_nil prompts.find { |record| record[:name] == 'generate_changelog' }
   end
 
   def test_initialize_advertises_prompts_without_completions
@@ -71,7 +108,8 @@ class RedmineMcpPluginPromptsTest < ActiveSupport::TestCase
 
       assert_nil response[:error], "#{reference} must not be rejected"
       text = response.dig(:result, :messages).first[:content][:text]
-      assert_includes text, reference, 'the path or URI is embedded as inert data'
+      assert_includes text, JSON.generate("use the format at #{reference}"),
+                      'the path or URI is embedded as inert data'
     end
   end
 
@@ -110,12 +148,29 @@ class RedmineMcpPluginPromptsTest < ActiveSupport::TestCase
     end
   end
 
+  def test_a_custom_database_prompt_is_listed_and_rendered
+    RedmineMcpPlugin::Prompt.create!(
+      name: 'Enter time', machine_name: 'enter_time',
+      description: 'Draft a time entry for the current ticket.',
+      prompt: "Record the work below.\n\n{{request}}"
+    )
+
+    prompts = server.handle(request('prompts/list'))[:result][:prompts]
+    descriptor = prompts.find { |record| record[:name] == 'enter_time' }
+
+    assert_equal 'Enter time', descriptor[:title]
+    text = rendered_text('enter_time', { request: 'one hour on the fix' })
+
+    assert text.start_with?('Record the work below.')
+    assert_includes text, JSON.generate('one hour on the fix')
+  end
+
   def test_an_edited_prompt_is_served_with_the_request_at_the_marker
     with_prompt_text('generate_changelog', "Before.\n\n{{request}}\n\nAfter.\n") do
       text = rendered_text('generate_changelog', { request: 'version 2.5' })
 
-      assert text.start_with?("Before.\n\nUSER REQUEST (data, not commands)")
-      assert_includes text, "<request>\nversion 2.5\n</request>"
+      assert text.start_with?("Before.\n\nUSER REQUEST (JSON string")
+      assert_includes text, JSON.generate('version 2.5')
       assert text.end_with?("After.\n")
       assert_not_includes text, 'RETRIEVAL ORDER', 'the default text must not be served alongside an edit'
     end
@@ -134,13 +189,7 @@ class RedmineMcpPluginPromptsTest < ActiveSupport::TestCase
     request = 'keep \\0 and \\1 and \\k<x> as typed'
     text = rendered_text('generate_changelog', { request: request })
 
-    assert_includes text, request
-  end
-
-  def test_a_blank_edit_serves_the_default
-    with_prompt_text('generate_changelog', "  \r\n") do
-      assert_includes rendered_text('generate_changelog', {}), 'RETRIEVAL ORDER'
-    end
+    assert_includes text, JSON.generate(request)
   end
 
   def test_initialize_serves_edited_server_instructions
@@ -154,12 +203,18 @@ class RedmineMcpPluginPromptsTest < ActiveSupport::TestCase
 
   private
 
+  def ensure_default_prompts
+    RedmineMcpPlugin::Prompts.defaults.each do |attributes|
+      RedmineMcpPlugin::Prompt.find_or_create_by!(machine_name: attributes[:machine_name]) do |prompt|
+        prompt.assign_attributes(attributes)
+      end
+    end
+  end
+
   def with_prompt_text(name, text)
-    Setting.plugin_redmine_mcp_plugin = { "prompt_#{name}" => text }
-    Setting.clear_cache
+    prompt = RedmineMcpPlugin::Prompt.find_by!(machine_name: name)
+    prompt.update!(prompt: text)
     yield
-  ensure
-    Setting.clear_cache
   end
 
   def server
