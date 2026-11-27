@@ -35,7 +35,7 @@ module RedmineMcpPlugin
         {
           project_identifier: project.identifier,
           issue_id: issue&.id,
-          required_fields: required_fields,
+          required_fields: required_fields(issue),
           custom_fields: fields.map { |field| field_payload(field, entry) },
           required_custom_fields: fields.select(&:is_required?).map { |field| field_ref(field) }
         }
@@ -69,9 +69,14 @@ module RedmineMcpPlugin
 
       # These are the arguments log_time requires from the caller: its own
       # required fields plus Redmine's configurable required time-log fields.
-      # spent_on and activity_id are omitted because the tool supplies defaults.
-      def required_fields
-        (%w[issue_id hours] + Array(Setting.timelog_required_fields).map(&:to_s)).uniq
+      # issue_id is required only in an issue context, or when Redmine itself
+      # makes it mandatory for every time entry. spent_on and activity_id are
+      # omitted because the tool supplies defaults.
+      def required_fields(issue)
+        configured = Array(Setting.timelog_required_fields).map(&:to_s)
+        fields = %w[hours]
+        fields << 'issue_id' if issue || configured.include?('issue_id')
+        (fields + configured).uniq
       end
 
       def field_payload(field, entry)

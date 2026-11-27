@@ -88,6 +88,106 @@ class RedmineMcpPluginTimeTrackingToolsTest < ActiveSupport::TestCase
     end
   end
 
+  def test_log_time_logs_against_a_project_without_an_issue
+    user = User.find(2)
+    project = Project.find_by(identifier: 'ecookbook')
+
+    with_read_only_off do
+      result = call_as(user, 'log_time', 'project' => 'ecookbook', 'hours' => 1.5,
+                       'comments' => 'Project-level work')[:result]
+
+      assert_not result[:isError], result[:content]&.first&.dig(:text)
+      payload = result[:structuredContent]
+      entry = TimeEntry.find(payload[:id])
+
+      assert_equal user.id, entry.user_id, 'time is logged for the caller'
+      assert_equal user.id, entry.author_id
+      assert_equal project.id, entry.project_id
+      assert_nil entry.issue_id
+      assert_in_delta 1.5, entry.hours.to_f, 0.001
+      assert_equal TimeEntryActivity.default_activity_id(user, project), entry.activity_id
+      assert_equal user.today, entry.spent_on
+      assert_equal 'Project-level work', entry.comments
+
+      assert_equal entry.id, payload[:id]
+      assert_nil payload[:issue_id]
+      assert_equal 'ecookbook', payload[:project_identifier]
+    end
+  end
+
+  def test_log_time_resolves_a_project_by_numeric_id
+    user = User.find(2)
+    project = Project.find_by(identifier: 'ecookbook')
+
+    with_read_only_off do
+      result = call_as(user, 'log_time', 'project' => project.id, 'hours' => 1)[:result]
+
+      assert_not result[:isError], result[:content]&.first&.dig(:text)
+      entry = TimeEntry.find(result[:structuredContent][:id])
+      assert_equal project.id, entry.project_id
+      assert_nil entry.issue_id
+    end
+  end
+
+  def test_log_time_requires_project_or_issue_id
+    with_read_only_off do
+      result = call_as(User.find(2), 'log_time', 'hours' => 1)[:result]
+
+      assert result[:isError]
+      assert_match(/Provide project or issue_id/, result[:content].first[:text])
+    end
+  end
+
+  def test_log_time_rejects_an_issue_that_is_not_in_the_given_project
+    with_read_only_off do
+      result = call_as(User.find(2), 'log_time', 'project' => 'onlinestore',
+                       'issue_id' => 1, 'hours' => 1)[:result]
+
+      assert result[:isError]
+      assert_match(/is not in project/, result[:content].first[:text])
+    end
+  end
+
+  def test_log_time_reports_an_invisible_project_as_not_found
+    with_read_only_off do
+      result = call_as(User.find(3), 'log_time', 'project' => 'private-child', 'hours' => 1)[:result]
+
+      assert result[:isError]
+      assert_match(/No visible project/, result[:content].first[:text])
+    end
+  end
+
+  def test_log_time_refuses_a_project_without_time_tracking
+    with_read_only_off do
+      result = call_as(User.find(1), 'log_time', 'project' => 'onlinestore', 'hours' => 1)[:result]
+
+      assert result[:isError]
+      assert_match(/time tracking module is not enabled/, result[:content].first[:text])
+    end
+  end
+
+  def test_log_time_honors_per_project_authorize_for_a_project_context
+    Role.find(4).remove_permission!(:log_time)
+
+    with_read_only_off do
+      result = call_as(User.find(3), 'log_time', 'project' => 'subproject1', 'hours' => 1)[:result]
+
+      assert result[:isError]
+      assert_match(/permission/i, result[:content].first[:text])
+    end
+  end
+
+  def test_log_time_requires_issue_id_when_redmine_requires_it
+    with_settings(:timelog_required_fields => ['issue_id']) do
+      with_read_only_off do
+        result = call_as(User.find(2), 'log_time', 'project' => 'ecookbook', 'hours' => 1)[:result]
+
+        assert result[:isError]
+        assert_match(/Issue cannot be blank/i, result[:content].first[:text])
+      end
+    end
+  end
+
   def test_log_time_resolves_activity_by_name_and_by_numeric_id
     with_read_only_off do
       by_name = call_as(User.find(2), 'log_time', 'issue_id' => 1, 'hours' => 1,
@@ -342,7 +442,18 @@ class RedmineMcpPluginTimeTrackingToolsTest < ActiveSupport::TestCase
     payload = result[:structuredContent]
     assert_equal 'ecookbook', payload[:project_identifier]
     assert_nil payload[:issue_id]
+    assert_includes payload[:required_fields], 'hours'
+    assert_not_includes payload[:required_fields], 'issue_id'
     assert_includes payload[:custom_fields].map { |field| field[:name] }, 'MCP Project Field'
+  end
+
+  def test_list_time_entry_fields_requires_issue_id_when_redmine_requires_it
+    with_settings(:timelog_required_fields => ['issue_id']) do
+      result = call_as(User.find(2), 'list_time_entry_fields', 'project' => 'ecookbook')[:result]
+
+      assert_not result[:isError], result[:content]&.first&.dig(:text)
+      assert_includes result[:structuredContent][:required_fields], 'issue_id'
+    end
   end
 
   def test_list_time_entry_fields_filters_role_scoped_fields

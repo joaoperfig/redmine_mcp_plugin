@@ -167,12 +167,14 @@ tokens that already hold `add_issues`.
 | Issue custom fields | `list_issue_custom_fields` | `view_issues`, plus `add_issues` on the project |
 | Create an issue | `create_issue` (optional `custom_fields`, by id or name; see `list_issue_custom_fields`) | `add_issues`; read-only mode must be disabled |
 | Add an issue note | `add_issue_note` | `add_issue_notes`; private notes also require `set_notes_private`; read-only mode must be disabled |
-| Log time | `log_time` | `log_time` on the issue's project; supports time-entry custom fields; the entry is always attributed to the authenticated user; read-only mode must be disabled; for OAuth clients, `log_time` must be ticked as a sign-in scope (it is not by default) |
+| Log time | `log_time` | `log_time` on the issue's project or on a visible project directly; pass either `issue_id` or `project`; supports time-entry custom fields; the entry is always attributed to the authenticated user; read-only mode must be disabled; for OAuth clients, `log_time` must be ticked as a sign-in scope (it is not by default) |
 
 `list_time_entry_fields` resolves an issue or project and returns the required
 time-log fields plus the time-entry custom fields the caller can see, including
 each field's id, name, format, required flag, default and possible values. Pass
-those values to `log_time` as `custom_fields`, keyed by field id or name.
+those values to `log_time` as `custom_fields`, keyed by field id or name. When
+`list_time_entry_fields` is given only a project, its `required_fields` omits
+`issue_id` unless Redmine itself makes that field mandatory for every time entry.
 
 Tool arguments are validated against their declared schemas. The paginated
 tools (`list_projects`, `search_issues`, `list_wiki_pages`, and `list_users`)
