@@ -182,42 +182,58 @@ the configured maximum (100 by default, with an absolute maximum of 1000).
 ## Prompts
 
 The server also exposes user-invoked prompts through `prompts/list` and
-`prompts/get`. A prompt renders instruction text the model then carries out with
-the read tools above; the prompt itself reads no Redmine records, so prompts are
-offered to every authenticated user and cannot widen what the caller may see.
+`prompts/get`. Prompts are stored in the database and managed from the plugin
+settings' Prompts tab, so an administrator can add, rename, or delete them
+without a code change. A prompt renders instruction text the model then carries
+out with the read tools above; the prompt itself reads no Redmine records, so
+prompts are offered to every authenticated user and cannot widen what the caller
+may see.
+
+A fresh install seeds two prompts:
 
 | Prompt | Purpose |
 |---|---|
 | `generate_changelog` | Produce an Athena-style changelog for the visible issues of one project version filtered by a single tracker. Takes a single optional `request` argument: free text describing the desired changelog (which version, optional tracker, optional format notes). It may be omitted; the skill then asks what you want and resolves scope interactively through the read tools, defaulting to the house Athena format. |
 | `qa_ticket_history_report` | Produce a scoped QA ticket-history report with São Paulo business-hour ownership, retest counting, and Dev/QA identification. Takes one optional `request`: free text naming a project/category/version and/or period, plus any format or calendar overrides. It may be omitted; the skill asks only for missing or ambiguous scope, proposes returned/reproved statuses from the real catalog for confirmation, and then uses the read tools. Weekends are excluded, holidays are not accounted for, and an open issue's ongoing owner interval is excluded from totals. |
 
-Both prompts take a single free-text argument. The server offers no prompt-argument
-completion capability. Request text is represented losslessly as inert data and is
-never dereferenced, so a long body, path, URL, or delimiter-like text in your notes
-is accepted rather than refused. The skills are read-only, and every read tool they
-name independently enforces the caller's permissions and record visibility.
+Every prompt takes a single optional free-text `request` argument. The server
+offers no prompt-argument completion capability. Request text is represented
+losslessly as one inert JSON string and is never dereferenced, so a long body,
+path, URL, or delimiter-like text in your notes is accepted rather than refused.
+The seeded skills are read-only, and every read tool they name independently
+enforces the caller's permissions and record visibility.
 
 ### Editing the prompts and tool descriptions
 
 **Administration > Plugins > Redmine MCP Server > Configure** has two tabs of
 model-facing text:
 
-* **Prompts**: the text of both prompts, and the server instructions every
-  client receives when it connects.
+* **Prompts**: the stored prompts, and the server instructions every client
+  receives when it connects.
 * **Tools**: each tool's description and each parameter's description, as
   sent in `tools/list`. Parameter names, types, and required parameters are not
   editable, because every call is validated against them. Clients usually fetch
   the tool list once per connection, so edits apply when they reconnect.
 
-Each field starts with the built-in default. A field left at its default stores
-nothing, so it keeps following the default when the plugin is updated; clearing
-a field, or **Restore default**, goes back to it.
+Each stored prompt has a **Name**, a **Machine name**, a **Description**, and its
+**Prompt** text. **Save** updates the record and **Delete** removes it; the form
+at the bottom adds another prompt, so the number of prompts is unlimited. The
+machine name is the identifier MCP clients pass to `prompts/get`; it accepts
+lower-case letters, numbers, and underscores only and must be unique. Renaming
+it changes how clients invoke the prompt. Prompts are listed in creation order
+and paginate after 25. Deleting either seeded prompt, or both, is supported: the
+server simply exposes the records that remain.
 
 In a prompt's text, `{{request}}` marks where the caller's `request` goes,
 together with the framing that tells the model to treat it as data. A text
 without the marker gets that section appended at the end, so an edit cannot
-drop the request. Prompt names, titles, descriptions, and arguments are not
-editable.
+drop the request. The prompt textarea starts at the height of an issue
+description and remains user-resizable.
+
+The server instructions and tool description fields start with the built-in
+default. One left at its default stores nothing, so it keeps following the
+default when the plugin is updated; clearing it, or **Restore default**, goes
+back to the default. Prompt bodies are stored as entered and cannot be blank.
 
 ## Resources (issue attachments)
 

@@ -12,6 +12,7 @@ class McpPromptsControllerTest < Redmine::ControllerTest
   def setup
     Setting.rest_api_enabled = '1'
     enable_mcp('enabled' => '1')
+    ensure_default_prompts
     User.current = nil
   end
 
@@ -44,6 +45,14 @@ class McpPromptsControllerTest < Redmine::ControllerTest
 
   def api_key_headers(user)
     { 'X-Redmine-API-Key' => user.api_key }
+  end
+
+  def ensure_default_prompts
+    RedmineMcpPlugin::Prompts.defaults.each do |attributes|
+      RedmineMcpPlugin::Prompt.find_or_create_by!(machine_name: attributes[:machine_name]) do |prompt|
+        prompt.assign_attributes(attributes)
+      end
+    end
   end
 
   def test_prompts_list_is_served_to_an_authenticated_user
@@ -107,6 +116,35 @@ class McpPromptsControllerTest < Redmine::ControllerTest
     text = json_body['result']['messages'].first['content']['text']
     assert_includes text, 'get_issue(include_journals: true)'
     assert_match(/no request/i, text)
+  end
+
+  def test_a_custom_prompt_stored_in_the_database_is_served
+    RedmineMcpPlugin::Prompt.create!(
+      name: 'Enter time', machine_name: 'enter_time',
+      description: 'Draft a time entry for the current ticket.',
+      prompt: 'Record the work.'
+    )
+
+    post_mcp rpc('prompts/list'), api_key_headers(User.find(2))
+    descriptor = json_body['result']['prompts'].find { |prompt| prompt['name'] == 'enter_time' }
+
+    assert_equal 'Enter time', descriptor['title']
+    assert_equal 'Draft a time entry for the current ticket.', descriptor['description']
+
+    post_mcp rpc('prompts/get', { 'name' => 'enter_time',
+                                  'arguments' => { 'request' => 'one hour' } }),
+             api_key_headers(User.find(2))
+    assert_nil json_body['error']
+    assert_includes json_body['result']['messages'].first['content']['text'], 'Record the work.'
+  end
+
+  def test_all_prompts_can_be_deleted
+    RedmineMcpPlugin::Prompt.delete_all
+
+    post_mcp rpc('prompts/list'), api_key_headers(User.find(2))
+
+    assert_response :success
+    assert_equal [], json_body['result']['prompts']
   end
 
   def test_completion_complete_is_rejected_when_capability_is_not_advertised

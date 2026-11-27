@@ -101,12 +101,14 @@ module RedmineMcpPlugin
         oauth2_auth? || api_key_auth? || basic_auth? || session_auth?
       end
 
-      # Text an administrator edits on the settings page's Prompts tab, or
-      # +default+ when the stored value is blank. The settings form blanks a
-      # field left at its default before saving, so the built-in text, and any
-      # later release's changes to it, stay in force until someone edits it.
-      # Browsers submit textareas with CRLF line breaks; served text uses LF.
-      # Pass +settings+ from one Settings.all when reading many keys at once.
+      # Text an administrator edits on the plugin settings page, such as the
+      # server instructions or a tool description, or +default+ when the stored
+      # value is blank. The settings form blanks a field left at its default
+      # before saving, so the built-in text, and any later release's changes to
+      # it, stay in force until someone edits it. Prompt bodies are stored in
+      # their own table instead. Browsers submit textareas with CRLF line
+      # breaks; served text uses LF. Pass +settings+ from one Settings.all when
+      # reading many keys at once.
       def text(key, default, settings = all)
         value = settings[key].to_s.gsub("\r\n", "\n")
         value.strip.empty? ? default : value

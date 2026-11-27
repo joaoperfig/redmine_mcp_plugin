@@ -1,0 +1,54 @@
+<%
+  # One database-backed prompt record. Rows share the settings page's single
+  # form, so each field is indexed by the record id (or "new") and each button
+  # targets this row's action with formaction.
+  key = prompt.persisted? ? prompt.id : 'new'
+  rows = [[10, prompt.prompt.to_s.length / 50].max, 20].min
+  placeholder = RedmineMcpPlugin::Prompts::Base::REQUEST_PLACEHOLDER
+%>
+
+<fieldset class="box mcp-prompt<%= ' mcp-prompt-new' unless prompt.persisted? %>"
+          data-prompt-id="<%= prompt.id %>">
+  <legend>
+    <%= prompt.persisted? ? prompt.name.presence || l('redmine_mcp_plugin.settings.prompt_untitled') : l('redmine_mcp_plugin.settings.prompt_new') %>
+  </legend>
+
+  <p>
+    <label for="prompts_<%= key %>_name"><%= l('redmine_mcp_plugin.settings.prompt_name') %></label>
+    <%= text_field_tag "prompts[#{key}][name]", prompt.name, id: "prompts_#{key}_name",
+                       size: 50, maxlength: 255 %>
+  </p>
+
+  <p>
+    <label for="prompts_<%= key %>_machine_name"><%= l('redmine_mcp_plugin.settings.prompt_machine_name') %></label>
+    <%= text_field_tag "prompts[#{key}][machine_name]", prompt.machine_name,
+                       id: "prompts_#{key}_machine_name", size: 40, maxlength: 255,
+                       pattern: '[a-z0-9_]+' %>
+    <em class="info"><%= l('redmine_mcp_plugin.settings.prompt_machine_name_hint') %></em>
+  </p>
+
+  <p>
+    <label for="prompts_<%= key %>_description"><%= l('redmine_mcp_plugin.settings.prompt_description') %></label>
+    <%= text_area_tag "prompts[#{key}][description]", prompt.description,
+                      id: "prompts_#{key}_description", rows: 3, spellcheck: false,
+                      style: 'width: 100%; box-sizing: border-box; resize: vertical;' %>
+  </p>
+
+  <p>
+    <label for="prompts_<%= key %>_prompt"><%= l('redmine_mcp_plugin.settings.prompt_text') %></label>
+    <%= text_area_tag "prompts[#{key}][prompt]", prompt.prompt,
+                      id: "prompts_#{key}_prompt", rows: rows, spellcheck: false,
+                      style: 'width: 100%; box-sizing: border-box; resize: vertical; font-family: monospace;' %>
+    <em class="info"><%= l('redmine_mcp_plugin.settings.prompt_request_hint', placeholder: placeholder) %></em>
+  </p>
+
+  <p>
+    <%= button_tag l(:button_save), type: 'submit', formmethod: 'post',
+                   formaction: prompt.persisted? ? mcp_prompt_path(prompt) : mcp_prompts_path %>
+    <% if prompt.persisted? %>
+      <%= button_tag l(:button_delete), type: 'submit', formmethod: 'post',
+                     formaction: delete_mcp_prompt_path(prompt),
+                     onclick: "return confirm(#{l('redmine_mcp_plugin.settings.prompt_delete_confirm').to_json});" %>
+    <% end %>
+  </p>
+</fieldset>

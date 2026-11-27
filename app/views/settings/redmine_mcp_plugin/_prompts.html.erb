@@ -1,37 +1,39 @@
 <%
-  # Each field shows the text in force: the stored edit, or the built-in default
-  # until someone edits it. See the container partial for how unchanged fields
-  # are kept out of the stored settings.
-  placeholder = RedmineMcpPlugin::Prompts::Base::REQUEST_PLACEHOLDER
-  fields = [
-    { key: 'server_instructions',
-      title: l('redmine_mcp_plugin.settings.server_instructions'),
-      info: l('redmine_mcp_plugin.settings.server_instructions_hint'),
-      default: RedmineMcpPlugin::McpServer::INSTRUCTIONS, rows: 6 }
-  ] + RedmineMcpPlugin::Prompts.all.map do |prompt|
-    { key: prompt.setting_key, title: prompt.title, info: prompt.description,
-      default: prompt::DEFAULT_TEXT, rows: 30, request: true }
-  end
+  # The prompt records live in the database and are edited in place. The whole
+  # settings page is one form, so each row's index and formaction button keep
+  # its Save/Delete action separate without nesting forms.
+  scope = RedmineMcpPlugin::Prompt.sorted
+  prompt_pages = Redmine::Pagination::Paginator.new(scope.count, 25, params[:page])
+  prompts = scope.offset(prompt_pages.offset).limit(prompt_pages.per_page).to_a
+  server_instructions = RedmineMcpPlugin::Settings.text(
+    'server_instructions', RedmineMcpPlugin::McpServer::INSTRUCTIONS
+  )
 %>
+
+<%= hidden_field_tag 'prompt_page', prompt_pages.page, id: nil %>
+
+<fieldset class="box">
+  <legend><%= l('redmine_mcp_plugin.settings.server_instructions') %></legend>
+  <p><em class="info"><%= l('redmine_mcp_plugin.settings.server_instructions_hint') %></em></p>
+  <%= text_area_tag 'settings[server_instructions]', server_instructions,
+                    id: 'settings_server_instructions', rows: 6, spellcheck: false,
+                    style: 'width: 100%; box-sizing: border-box; resize: vertical;',
+                    data: { default: RedmineMcpPlugin::McpServer::INSTRUCTIONS } %>
+  <p>
+    <%= link_to sprite_icon('reload', l('redmine_mcp_plugin.settings.restore_default')), '#',
+                class: 'icon mcp-restore' %>
+  </p>
+</fieldset>
 
 <p><em class="info"><%= l('redmine_mcp_plugin.settings.prompts_intro') %></em></p>
 
-<% fields.each do |field| %>
-  <fieldset class="box mcp-prompt">
-    <legend><%= field[:title] %></legend>
-    <p><em class="info"><%= field[:info] %></em></p>
-    <%= text_area_tag "settings[#{field[:key]}]",
-                      RedmineMcpPlugin::Settings.text(field[:key], field[:default]),
-                      id: "settings_#{field[:key]}", rows: field[:rows], spellcheck: false,
-                      style: 'width: 100%; box-sizing: border-box; font-family: monospace;',
-                      data: { default: field[:default] } %>
-    <p>
-      <% if field[:request] %>
-        <em class="info"><%= l('redmine_mcp_plugin.settings.prompt_request_hint', placeholder: placeholder) %></em>
-      <% end %>
-      <%= link_to sprite_icon('reload', l('redmine_mcp_plugin.settings.restore_default')), '#',
-                  class: 'icon mcp-restore' %>
-    </p>
-  </fieldset>
+<% prompts.each do |prompt| %>
+  <%= render partial: 'settings/redmine_mcp_plugin/prompt_form', locals: { prompt: prompt } %>
 <% end %>
 
+<% if prompt_pages.multiple_pages? %>
+  <div class="pagination"><%= pagination_links_full prompt_pages %></div>
+<% end %>
+
+<%= render partial: 'settings/redmine_mcp_plugin/prompt_form',
+           locals: { prompt: RedmineMcpPlugin::Prompt.new } %>

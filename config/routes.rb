@@ -7,6 +7,17 @@ RedmineApp::Application.routes.draw do
   get    'mcp' => 'mcp#stream'
   delete 'mcp' => 'mcp#terminate'
 
+  # Stored prompt records are edited from the plugin settings page, whose single
+  # form submits each row's Save/Delete button here. POST is used for update and
+  # delete so those buttons work without a nested form or a _method field that
+  # would also affect the settings form's own Apply action.
+  post 'settings/plugin/redmine_mcp_plugin/prompts' => 'settings_prompts#create',
+       as: :mcp_prompts
+  post 'settings/plugin/redmine_mcp_plugin/prompts/:id/delete' => 'settings_prompts#destroy',
+       as: :delete_mcp_prompt
+  post 'settings/plugin/redmine_mcp_plugin/prompts/:id' => 'settings_prompts#update',
+       as: :mcp_prompt
+
   # RFC 9728 defines both spellings of the protected-resource document: the
   # path-suffixed form and the plain form used by existing clients.
   get '.well-known/oauth-protected-resource'     => 'mcp_metadata#protected_resource'
