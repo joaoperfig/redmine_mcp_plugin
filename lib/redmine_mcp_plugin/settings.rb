@@ -25,6 +25,15 @@ module RedmineMcpPlugin
       'auth_session' => 'false',
 
       'read_only' => 'true',
+      # Write scopes OAuth clients request at sign-in when read-only is off.
+      # An explicit list, never derived from the registered tools: every OAuth
+      # application must allow each requested scope or Doorkeeper refuses the
+      # sign-in with invalid_scope, so a plugin upgrade that adds a write tool
+      # must not change what clients ask for. A new tool's scope is requested
+      # only after an administrator ticks it. These are the scopes requested
+      # before that rule existed, so upgraded installs keep asking for them.
+      'sign_in_write_scopes' => %w[add_issues add_issue_notes manage_versions edit_wiki_pages
+                                   set_notes_private].freeze,
       # Comma/newline separated extra Origins allowed to reach the endpoint.
       # The Redmine host itself is always allowed. Requests with no Origin
       # header (the usual case outside a browser) are unaffected.
@@ -76,6 +85,15 @@ module RedmineMcpPlugin
 
       def allowed_origins
         all['allowed_origins'].to_s.split(/[,\s]+/).map(&:strip).reject(&:blank?)
+      end
+
+      # Settings saved before this key existed lack it, so they get the
+      # default. A form save with every box unticked stores [""], which is an
+      # empty selection rather than a missing one.
+      def sign_in_write_scopes
+        raw = all['sign_in_write_scopes']
+        raw = DEFAULTS['sign_in_write_scopes'] if raw.nil?
+        Array(raw).map { |scope| scope.to_s.strip }.reject(&:empty?).uniq.map(&:to_sym)
       end
 
       # Lets the caller distinguish a configuration error from bad credentials.

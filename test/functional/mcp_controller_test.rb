@@ -91,7 +91,7 @@ class McpControllerTest < Redmine::ControllerTest
 
     assert_response :unauthorized
     assert_equal 'view_issues view_project view_wiki_pages view_issue_watchers view_time_entries view_private_notes ' \
-                 'add_issues add_issue_notes log_time manage_versions edit_wiki_pages set_notes_private',
+                 'add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private',
                  response.headers['WWW-Authenticate'][/scope="([^"]*)"/, 1]
   end
 
@@ -305,9 +305,50 @@ class McpControllerTest < Redmine::ControllerTest
     )
   end
 
-  def test_time_logging_challenge_requests_the_log_time_scope
+  # An upgrade that registers log_time must not change what clients request at
+  # sign-in: OAuth applications configured for the old set would refuse every
+  # sign-in with invalid_scope. Until an administrator ticks log_time, tokens
+  # without it neither see the tool nor get a step-up they cannot satisfy.
+  def test_unselected_write_scope_is_not_requested_offered_or_challenged
     enable_mcp('read_only' => '0')
+    post_mcp rpc('tools/list')
+    assert_not_includes response.headers['WWW-Authenticate'][/scope="([^"]*)"/, 1].split, 'log_time'
+
+    oauth = oauth_headers(User.find(2), scopes: 'view_issues view_project add_issues')
+    post_mcp rpc('tools/list'), oauth
+    names = json_body['result']['tools'].pluck('name')
+    assert_not_includes names, 'log_time'
+    assert_includes names, 'create_issue'
+
+    post_mcp rpc('tools/call', { 'name' => 'log_time', 'arguments' => { 'issue_id' => 1, 'hours' => 1 } }), oauth
+    assert_response :forbidden
+    assert_nil response.headers['WWW-Authenticate']
+  end
+
+  # A token that already carries the scope keeps the tool even when sign-in no
+  # longer requests it, so unticking a scope never breaks an existing grant.
+  def test_token_with_an_unselected_write_scope_still_sees_and_uses_it
+    enable_mcp('read_only' => '0')
+    oauth = oauth_headers(User.find(2), scopes: 'view_issues log_time')
+
+    post_mcp rpc('tools/list'), oauth
+    assert_includes json_body['result']['tools'].pluck('name'), 'log_time'
+
+    assert_difference -> { TimeEntry.count }, 1 do
+      post_mcp rpc('tools/call', { 'name' => 'log_time', 'arguments' => { 'issue_id' => 1, 'hours' => 1 } }), oauth
+    end
+    assert_not json_body.dig('result', 'isError')
+  end
+
+  def test_time_logging_challenge_requests_the_log_time_scope_once_selected
+    enable_mcp('read_only' => '0',
+               'sign_in_write_scopes' => RedmineMcpPlugin::Settings::DEFAULTS['sign_in_write_scopes'] + %w[log_time])
+    post_mcp rpc('tools/list')
+    assert_includes response.headers['WWW-Authenticate'][/scope="([^"]*)"/, 1].split, 'log_time'
+
     oauth = oauth_headers(User.find(2), scopes: 'view_issues')
+    post_mcp rpc('tools/list'), oauth
+    assert_includes json_body['result']['tools'].pluck('name'), 'log_time'
 
     post_mcp rpc('tools/call', { 'name' => 'log_time',
                                  'arguments' => { 'issue_id' => 1, 'hours' => 1 } }), oauth
@@ -337,21 +378,41 @@ class McpControllerTest < Redmine::ControllerTest
     )
   end
 
-  # A token issued in read-only mode carries only read scopes. The custom field
-  # lookup must refuse it as a tool error rather than build a read challenge
-  # for the write-tier add_issues scope, which ScopeChallenge rejects.
-  def test_list_issue_custom_fields_without_add_issues_scope_is_a_tool_error
-    call = rpc('tools/call', { 'name' => 'list_issue_custom_fields', 'arguments' => { 'project' => 'ecookbook' } })
+  # A token issued in read-only mode carries only read scopes and can never
+  # gain add_issues by signing in again, so the custom field lookup, which
+  # needs add_issues, is not offered to it. A token that has add_issues (one
+  # issued while writes were on) keeps it.
+  def test_list_issue_custom_fields_follows_the_add_issues_scope_in_read_only_mode
+    read_token = oauth_headers(User.find(2), scopes: 'view_issues view_project')
+    post_mcp rpc('tools/list'), read_token
+    assert_not_includes json_body['result']['tools'].pluck('name'), 'list_issue_custom_fields'
 
-    post_mcp call, oauth_headers(User.find(2), scopes: 'view_issues view_project')
-    assert_response :success
-    assert json_body['result']['isError']
-    assert_match(/permission/i, json_body['result']['content'].first['text'])
+    write_token = oauth_headers(User.find(2), scopes: 'view_issues view_project add_issues')
+    post_mcp rpc('tools/list'), write_token
+    assert_includes json_body['result']['tools'].pluck('name'), 'list_issue_custom_fields'
 
-    post_mcp call, oauth_headers(User.find(2), scopes: 'view_issues view_project add_issues')
+    post_mcp rpc('tools/call', { 'name' => 'list_issue_custom_fields', 'arguments' => { 'project' => 'ecookbook' } }),
+             write_token
     assert_response :success
     assert_not json_body.dig('result', 'isError')
     assert_equal 'ecookbook', json_body['result']['structuredContent']['project_identifier']
+  end
+
+  # With writes on, sign-in requests add_issues, so the tool stays listed for a
+  # token without it, and a call is refused as a tool error rather than a 500
+  # from a read challenge for a write scope.
+  def test_list_issue_custom_fields_without_add_issues_scope_is_a_tool_error
+    enable_mcp('read_only' => '0')
+    oauth = oauth_headers(User.find(2), scopes: 'view_issues view_project')
+
+    post_mcp rpc('tools/list'), oauth
+    assert_includes json_body['result']['tools'].pluck('name'), 'list_issue_custom_fields'
+
+    post_mcp rpc('tools/call', { 'name' => 'list_issue_custom_fields', 'arguments' => { 'project' => 'ecookbook' } }),
+             oauth
+    assert_response :success
+    assert json_body['result']['isError']
+    assert_match(/permission/i, json_body['result']['content'].first['text'])
   end
 
   def test_oauth_administrator_without_a_grantable_role_is_challenged_for_admin

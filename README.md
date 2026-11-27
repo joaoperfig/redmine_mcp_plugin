@@ -109,15 +109,27 @@ plugin publishes protected-resource and authorization-server metadata at:
 The protected-resource metadata and the `/mcp` authentication challenge advertise
 `view_issues view_project view_wiki_pages view_issue_watchers view_time_entries view_private_notes`
 as the read bootstrap scopes for an initial client handshake. When read-only mode
-is off, they also advertise the write scopes
-(`add_issues add_issue_notes log_time manage_versions edit_wiki_pages set_notes_private`),
-so clients that never act on a step-up challenge, such as claude.ai connectors,
-still receive a write-capable token. Private-note scopes are included because
-private notes are routine team discussion; the user's role still decides what
-they can see or set. `admin` is requested only through a step-up challenge.
+is off, they also advertise the write scopes ticked under **Write scopes requested
+at sign-in** on the plugin's settings page, by default
+`add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private`.
+Clients that never act on a step-up challenge, such as claude.ai connectors,
+therefore still receive a write-capable token. Private-note scopes are included
+because private notes are routine team discussion; the user's role still decides
+what they can see or set. `admin` is requested only through a step-up challenge.
+
 The OAuth application must allow every advertised scope: Doorkeeper rejects an
-authorization request that asks for any scope the application lacks. After turning
-read-only off, users must reconnect so their client requests a new token.
+authorization request that asks for any scope the application lacks, so every
+sign-in through it fails with `invalid_scope`. The settings page warns about any
+application under Administration > Applications that lacks a requested scope.
+After turning read-only off, users must reconnect so their client requests a new
+token; some clients cache the advertised scopes for several minutes.
+
+Updating the plugin never adds a scope to that request. When an update brings a
+write tool with a new scope, such as `log_time`, allow the scope in every OAuth
+application first, then tick it in the settings. Until then, an OAuth client
+whose token lacks the scope does not see the tool, and a call to it gets a plain
+403 instead of a step-up challenge it could not satisfy. Existing tokens keep
+working throughout; users reconnect only when they want the new tool.
 
 Dynamic client registration (RFC 7591) is optional and disabled by default.
 Enabling it exposes `POST /oauth/registration` so public MCP clients can register
@@ -137,7 +149,11 @@ are refused by `tools/call`.
 For OAuth2 callers, `tools/list` reflects Redmine role permissions rather than
 the current token's narrower scopes. A role-permitted tool can therefore be
 discovered before scope elevation, but `tools/call` still enforces the current
-token scopes; tools denied by the user's role remain hidden.
+token scopes; tools denied by the user's role remain hidden. A tool is also
+hidden when the token lacks its scope and a new sign-in would not request it,
+because reconnecting could not make it usable. `list_issue_custom_fields`
+follows `add_issues` this way, so in read-only mode it is listed only for
+tokens that already hold `add_issues`.
 
 | Capability | Tools | Required Redmine permission |
 |---|---|---|
@@ -151,7 +167,7 @@ token scopes; tools denied by the user's role remain hidden.
 | Issue custom fields | `list_issue_custom_fields` | `view_issues`, plus `add_issues` on the project |
 | Create an issue | `create_issue` (optional `custom_fields`, by id or name; see `list_issue_custom_fields`) | `add_issues`; read-only mode must be disabled |
 | Add an issue note | `add_issue_note` | `add_issue_notes`; private notes also require `set_notes_private`; read-only mode must be disabled |
-| Log time | `log_time` | `log_time` on the issue's project; supports time-entry custom fields; the entry is always attributed to the authenticated user; read-only mode must be disabled |
+| Log time | `log_time` | `log_time` on the issue's project; supports time-entry custom fields; the entry is always attributed to the authenticated user; read-only mode must be disabled; for OAuth clients, `log_time` must be ticked as a sign-in scope (it is not by default) |
 
 `list_time_entry_fields` resolves an issue or project and returns the required
 time-log fields plus the time-entry custom fields the caller can see, including

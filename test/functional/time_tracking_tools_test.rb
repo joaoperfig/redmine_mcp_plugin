@@ -102,6 +102,24 @@ class RedmineMcpPluginTimeTrackingToolsTest < ActiveSupport::TestCase
     end
   end
 
+  # With no default activity marked, the project still has active activities,
+  # so the refusal must ask for activity_id rather than claim there are none.
+  def test_log_time_without_a_default_activity_asks_for_activity_id
+    TimeEntryActivity.update_all(is_default: false)
+    Role.update_all(default_time_entry_activity_id: nil)
+
+    with_read_only_off do
+      result = call_as(User.find(2), 'log_time', 'issue_id' => 1, 'hours' => 1)[:result]
+
+      assert result[:isError]
+      text = result[:content].first[:text]
+      assert_match(/no default time entry activity/, text)
+      assert_match(/activity_id/, text)
+      assert_match(/list_time_entry_activities/, text)
+      assert_includes text, 'Design'
+    end
+  end
+
   def test_log_time_honors_an_explicit_spent_on_date
     spent_on = Date.yesterday
 

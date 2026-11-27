@@ -46,7 +46,7 @@ class McpMetadataControllerTest < Redmine::ControllerTest
 
     assert_response :success
     assert_equal %w[view_issues view_project view_wiki_pages view_issue_watchers view_time_entries view_private_notes
-                    add_issues add_issue_notes log_time manage_versions edit_wiki_pages set_notes_private],
+                    add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private],
                  JSON.parse(response.body)['scopes_supported']
   end
 

@@ -24,6 +24,17 @@ module RedmineMcpPlugin
         'additionalProperties' => false
       )
 
+      # #perform refuses unless the caller may add issues, so offer the tool
+      # only where that can succeed: some role grants add_issues, and an OAuth
+      # token holds the scope or a new sign-in would request it. In read-only
+      # mode sign-in asks for read scopes only, so tokens issued then never
+      # see a tool that would always refuse them.
+      def self.available_to?(user, oauth_scopes:)
+        super &&
+          ScopeChallenge.obtainable?(oauth_scopes, %i[add_issues]) &&
+          role_allows?(user, oauth_scopes: oauth_scopes, permissions: %i[add_issues])
+      end
+
       private
 
       def perform(arguments)

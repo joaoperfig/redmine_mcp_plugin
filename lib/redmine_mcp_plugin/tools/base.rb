@@ -20,9 +20,10 @@ module RedmineMcpPlugin
     # Authorization is enforced with three locks:
     #
     #   * Discovery lock: `available_to?` decides whether the tool is mounted on
-    #     the per-request server at all. It ignores OAuth scope narrowing so a
-    #     role-permitted tool remains discoverable for step-up, while a tool the
-    #     user's role denies stays out of discovery.
+    #     the per-request server at all. It ignores OAuth scope narrowing for
+    #     scopes a new sign-in would request, so a role-permitted tool remains
+    #     discoverable for step-up, while a tool the user's role denies, or
+    #     whose scope no sign-in would grant, stays out of discovery.
     #   * HTTP lock: McpController authorizes registered tools/call requests and
     #     owns role/read-only 403s and OAuth scope challenges.
     #   * Execution backstop: `run` re-checks read-only and permission before the
@@ -81,8 +82,15 @@ module RedmineMcpPlugin
         # 2026-07-28 spec says so explicitly -- and hiding a tool the caller
         # could never successfully call is friendlier than letting a model
         # discover it and fail.
+        #
+        # Step-up only helps when signing in again would request the missing
+        # scope. A tool whose permission the token lacks and sign-in would not
+        # request can never run on this connection, and offering it would send
+        # the user to reconnect for nothing, or into an invalid_scope refusal
+        # from an OAuth application that does not allow the scope.
         def available_to?(user, oauth_scopes:)
           return false if write? && Settings.read_only?
+          return false unless ScopeChallenge.obtainable?(oauth_scopes, required_permissions)
 
           role_allows?(user, oauth_scopes: oauth_scopes)
         end

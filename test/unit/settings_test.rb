@@ -75,6 +75,27 @@ class RedmineMcpPluginSettingsTest < ActiveSupport::TestCase
     with_settings_hash('allowed_origins' => '') { assert_equal [], S.allowed_origins }
   end
 
+  # An install upgraded from before this setting has a saved hash without the
+  # key, and must keep requesting exactly what it requested before.
+  def test_sign_in_write_scopes_default_for_settings_saved_without_them
+    legacy = %i[add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private]
+    with_settings_hash('enabled' => '1', 'read_only' => '0') { assert_equal legacy, S.sign_in_write_scopes }
+    with_settings_hash({}) { assert_equal legacy, S.sign_in_write_scopes }
+  end
+
+  def test_sign_in_write_scopes_read_a_saved_selection
+    with_settings_hash('sign_in_write_scopes' => ['', 'add_issues', 'log_time', 'add_issues']) do
+      assert_equal %i[add_issues log_time], S.sign_in_write_scopes
+    end
+    with_settings_hash(sign_in_write_scopes: %w[log_time]) { assert_equal %i[log_time], S.sign_in_write_scopes }
+  end
+
+  # The form's hidden field submits [""] when every box is unticked; that is
+  # an explicit empty choice, not a missing setting.
+  def test_sign_in_write_scopes_all_unticked_is_empty
+    with_settings_hash('sign_in_write_scopes' => ['']) { assert_equal [], S.sign_in_write_scopes }
+  end
+
   def test_any_auth_mode_detects_all_modes_off
     with_settings_hash('auth_oauth2' => '0', 'auth_api_key' => '0', 'auth_basic' => '0', 'auth_session' => '0') do
       assert_not S.any_auth_mode?

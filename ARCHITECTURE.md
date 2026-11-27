@@ -249,7 +249,7 @@ Errors retain one owner across the controller-to-SDK seam:
 | Malformed JSON, a batch, an invalid JSON-RPC envelope, or an unsupported `MCP-Protocol-Version` header | Controller plus `JsonRpc`; HTTP 400 with the applicable JSON-RPC error |
 | Unknown MCP method | SDK `MCP::Server#handle`; JSON-RPC method-not-found (`-32601`) |
 | Registered tool denied by role or read-only mode | Controller; plain HTTP 403 with no scope challenge |
-| Registered tool permitted by role but outside the OAuth token scope | Controller plus `ScopeChallenge`; HTTP 403 with an `insufficient_scope` challenge |
+| Registered tool permitted by role but outside the OAuth token scope | Controller plus `ScopeChallenge`; HTTP 403 with an `insufficient_scope` challenge, or a plain 403 when sign-in would not request the missing scope |
 | Unknown tool | SDK `MCP::Server#handle`; JSON-RPC invalid-params (`-32602`) with the tool-not-found shape |
 | SDK input-schema rejection | SDK tool result with `isError: true`; the tool body does not run |
 | Expected `ToolError` or `PermissionError` from an executing tool | `Tools::Base#run`; `MCP::Tool::Response` encoded as a result with `isError: true` |
@@ -299,7 +299,10 @@ construction. Read-only mode defaults on.
 `User#oauth_scope=`. Discovery evaluates a tool's declared permission with that
 scope narrowing temporarily cleared, then restores the retained scopes, so
 `tools/list` reflects the user's role and exposes role-permitted tools for OAuth
-step-up. For a registered `tools/call`, the controller first checks the role-only
+step-up. Step-up can only obtain a scope that a new sign-in requests, so
+discovery hides a tool whose permission the token lacks and
+`ScopeChallenge.initial_scopes` does not include
+(`ScopeChallenge.obtainable?`). For a registered `tools/call`, the controller first checks the role-only
 axis for every permission the invocation requires. A role denial returns a plain
 403 because no token can overcome it. If the role permits the operation but
 `User#allowed_to?` fails with the retained OAuth scopes, the controller returns
@@ -313,9 +316,22 @@ request. The authoritative correlation map and challenge format live in
 prevents a read challenge from introducing write authority. The client can union
 the challenged scopes with its current grant, re-authorize, and retry. Not every
 client does, so with read-only mode off the initial challenge and
-protected-resource metadata already include the write tools' scopes and
-`set_notes_private` (`ScopeChallenge.initial_scopes`); only `admin` relies on
-step-up. `view_private_notes` is a bootstrap read scope in both modes.
+protected-resource metadata already include the write scopes an administrator
+selected (`Settings.sign_in_write_scopes`, offered from the write tools' scopes
+and `set_notes_private`); only `admin` relies on step-up. `view_private_notes` is
+a bootstrap read scope in both modes.
+
+The sign-in request is an explicit selection, never derived from the registry.
+Doorkeeper refuses an authorization request naming any scope the OAuth
+application does not allow (`invalid_scope`), so a plugin update that silently
+added a new write tool's scope would fail every sign-in through applications set
+up for the previous request. Upgraded installs keep the previous five write
+scopes until an administrator ticks more. Three rules keep the challenge within
+that request: a role-grantable permission that the token lacks and sign-in would
+not request gets a plain 403 rather than a challenge; a correlated write scope
+joins a challenge only if it is selected; and discovery hides such tools, as
+above. The settings page lists OAuth applications that lack a requested scope
+(`OauthApplications.missing_scopes`).
 
 Tool execution still uses `User#allowed_to?` with the restored scopes as a
 backstop and therefore intersects Redmine role permissions with the token's

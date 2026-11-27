@@ -80,11 +80,17 @@ module RedmineMcpPlugin
         activity.id
       end
 
+      # Redmine has no default activity unless an administrator marks one, so
+      # a nil default usually means "choose one", not "none exist".
       def default_activity_id(project)
         id = TimeEntryActivity.default_activity_id(user, project)
-        raise ToolError, "No active time entry activities are available for #{project.identifier}" if id.nil?
+        return id if id
 
-        id
+        names = project.activities.map(&:name)
+        raise ToolError, "No active time entry activities are available for #{project.identifier}" if names.empty?
+
+        raise ToolError, "#{project.identifier} has no default time entry activity, so pass activity_id " \
+                         "(name or id). Available: #{names.join(', ')}. See list_time_entry_activities."
       end
 
       # The activity must be one of the project's available activities, which

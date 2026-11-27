@@ -52,6 +52,40 @@
     <%= check_box_tag 'settings[read_only]', '1', checked.call('read_only'), id: 'settings_read_only' %>
     <em class="info"><%= l('redmine_mcp_plugin.settings.read_only_hint') %></em>
   </p>
+  <%
+    # Read through Settings, not the tab hash, so the boxes show the default
+    # selection on installs saved before this setting existed.
+    sign_in_scopes = RedmineMcpPlugin::Settings.sign_in_write_scopes
+    offered_scopes = RedmineMcpPlugin::ScopeChallenge.offered_write_scopes
+    uncovered = RedmineMcpPlugin::OauthApplications.missing_scopes(
+      RedmineMcpPlugin::OAUTH_BOOTSTRAP_SCOPES + offered_scopes.select { |scope| sign_in_scopes.include?(scope) }
+    )
+  %>
+  <% if uncovered.any? %>
+    <div class="warning">
+      <%= l('redmine_mcp_plugin.settings.sign_in_scopes_warning') %>
+      <ul>
+        <% uncovered.each do |application, missing| %>
+          <li>
+            <%= application.name %>:
+            <%= missing.map { |scope| "#{l("permission_#{scope}", default: scope)} (#{scope})" }.join(', ') %>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+  <p>
+    <label><%= l('redmine_mcp_plugin.settings.sign_in_write_scopes') %></label>
+    <%= hidden_field_tag 'settings[sign_in_write_scopes][]', '', id: nil %>
+    <% offered_scopes.each do |scope| %>
+      <label class="block">
+        <%= check_box_tag 'settings[sign_in_write_scopes][]', scope, sign_in_scopes.include?(scope),
+                          id: "settings_sign_in_write_scopes_#{scope}" %>
+        <%= l("permission_#{scope}", default: scope.to_s) %> <code><%= scope %></code>
+      </label>
+    <% end %>
+    <em class="info"><%= l('redmine_mcp_plugin.settings.sign_in_write_scopes_hint') %></em>
+  </p>
   <p>
     <label for="settings_max_results"><%= l('redmine_mcp_plugin.settings.max_results') %></label>
     <%= number_field_tag 'settings[max_results]', settings[:max_results], min: 1,

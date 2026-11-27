@@ -167,9 +167,17 @@ class McpController < ApplicationController
     return true unless @mcp_auth[:mode] == :oauth2
     return true if permissions.all? { |permission| User.current.allowed_to?(permission, nil, global: true) }
 
-    challenge_permissions = if tool.permission_scopes_can_authorize?(
-                              User.current, permissions: permissions
-                            )
+    role_grantable = tool.permission_scopes_can_authorize?(User.current, permissions: permissions)
+    if role_grantable && !RedmineMcpPlugin::ScopeChallenge.obtainable?(@mcp_auth[:scopes], permissions)
+      # Signing in again would not request the missing scope, so a challenge
+      # could only send the client to a reconnect that cannot help, or that the
+      # OAuth application refuses with invalid_scope, leaving the user signed
+      # out. Same plain 403 as a role denial.
+      head :forbidden
+      return false
+    end
+
+    challenge_permissions = if role_grantable
                               permissions
                             elsif tool.write?
                               %i[admin]

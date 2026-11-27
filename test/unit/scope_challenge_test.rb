@@ -101,7 +101,7 @@ class RedmineMcpPluginScopeChallengeTest < ActiveSupport::TestCase
   def test_initial_scopes_add_write_tool_scopes_when_writes_are_enabled
     with_mcp_settings('read_only' => '0') do
       assert_equal RedmineMcpPlugin::OAUTH_BOOTSTRAP_SCOPES +
-                     %w[add_issues add_issue_notes log_time manage_versions edit_wiki_pages set_notes_private],
+                     %w[add_issues add_issue_notes manage_versions edit_wiki_pages set_notes_private],
                    Challenge.initial_scopes
     end
   end
@@ -120,6 +120,57 @@ class RedmineMcpPluginScopeChallengeTest < ActiveSupport::TestCase
   def test_initial_scopes_keep_admin_behind_step_up
     with_mcp_settings('read_only' => '0') do
       assert_not_includes Challenge.initial_scopes, 'admin'
+    end
+  end
+
+  # Registering a write tool (log_time) must not add its scope to sign-in:
+  # OAuth applications set up for the old request would refuse every sign-in.
+  def test_initial_scopes_never_add_a_write_scope_on_their_own
+    with_mcp_settings('read_only' => '0') do
+      assert_includes Challenge.offered_write_scopes, :log_time
+      assert_not_includes Challenge.initial_scopes, 'log_time'
+    end
+  end
+
+  def test_initial_scopes_add_selected_write_scopes_in_registry_order
+    with_mcp_settings('read_only' => '0', 'sign_in_write_scopes' => %w[set_notes_private log_time add_issues]) do
+      assert_equal RedmineMcpPlugin::OAUTH_BOOTSTRAP_SCOPES + %w[add_issues log_time set_notes_private],
+                   Challenge.initial_scopes
+    end
+  end
+
+  def test_initial_scopes_ignore_blank_unknown_and_admin_selections
+    with_mcp_settings('read_only' => '0', 'sign_in_write_scopes' => ['', 'admin', 'not_a_scope', 'add_issues']) do
+      assert_equal RedmineMcpPlugin::OAUTH_BOOTSTRAP_SCOPES + %w[add_issues], Challenge.initial_scopes
+    end
+  end
+
+  def test_read_only_mode_ignores_the_write_selection
+    with_mcp_settings('read_only' => '1', 'sign_in_write_scopes' => %w[add_issues log_time]) do
+      assert_equal RedmineMcpPlugin::OAUTH_BOOTSTRAP_SCOPES, Challenge.initial_scopes
+    end
+  end
+
+  # A client that unions the challenge into its next sign-in would otherwise
+  # ask for a scope the OAuth applications were never set up to allow.
+  def test_write_challenge_drops_a_correlated_scope_sign_in_does_not_request
+    with_mcp_settings('read_only' => '0', 'sign_in_write_scopes' => %w[add_issues]) do
+      header = Challenge.header(permissions: %i[add_issues], write: true, resource_metadata: 'x')
+
+      assert_equal 'add_issues', scope_of(header)
+    end
+  end
+
+  def test_obtainable_counts_the_token_and_what_sign_in_requests
+    with_mcp_settings('read_only' => '0') do
+      assert Challenge.obtainable?(nil, %i[log_time]), 'modes without token scopes are not narrowed'
+      assert Challenge.obtainable?(%i[log_time], %i[log_time])
+      assert Challenge.obtainable?(%i[view_issues], %i[add_issues])
+      assert_not Challenge.obtainable?(%i[view_issues], %i[log_time])
+    end
+    with_mcp_settings('read_only' => '1') do
+      assert Challenge.obtainable?([], %i[view_issues])
+      assert_not Challenge.obtainable?(%i[view_issues], %i[add_issues])
     end
   end
 

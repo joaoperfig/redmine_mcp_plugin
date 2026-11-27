@@ -16,6 +16,9 @@ en:
       auth_session_hint: "Accepts an existing logged-in Redmine session. Only useful for clients running inside the browser, and the only mode exposed to cross-site request forgery - requests are rejected unless the Origin header matches this Redmine or an entry below."
       read_only: Read-only mode
       read_only_hint: "Hide and refuse every tool that creates or changes data. On by default."
+      sign_in_write_scopes: Write scopes requested at sign-in
+      sign_in_write_scopes_hint: "With read-only mode off, OAuth clients ask for these scopes when they sign in. Every OAuth application under Administration > Applications must allow each ticked scope, or sign-ins through it fail with invalid_scope. Updating the plugin never ticks a new scope: allow it in the applications first, then tick it here. Existing connections keep their tokens; users reconnect only to use a newly ticked scope. Over OAuth, a write tool whose scope is not ticked is hidden unless the token already has it."
+      sign_in_scopes_warning: "These OAuth applications do not allow every scope requested at sign-in. Sign-ins through them fail with invalid_scope (for write scopes, once read-only mode is off). Allow the missing scopes in Administration > Applications, or untick them below:"
       allowed_origins: Additional allowed origins
       allowed_origins_hint: "One per line, e.g. https://app.example.com. This Redmine's own origin is always allowed. Requests with no Origin header - the usual case for non-browser MCP clients - are unaffected."
       max_results: Maximum results per call

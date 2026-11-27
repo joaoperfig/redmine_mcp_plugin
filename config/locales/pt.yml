@@ -16,6 +16,9 @@ pt:
       auth_session_hint: "Aceita uma sessao Redmine ja iniciada. So e util para clientes que corram dentro do browser, e e o unico modo exposto a cross-site request forgery - os pedidos sao rejeitados se o cabecalho Origin nao corresponder a este Redmine ou a uma entrada abaixo."
       read_only: Modo apenas-leitura
       read_only_hint: "Esconde e recusa todas as ferramentas que criem ou alterem dados. Activo por omissao."
+      sign_in_write_scopes: Scopes de escrita pedidos no inicio de sessao
+      sign_in_write_scopes_hint: "Com o modo apenas-leitura desligado, os clientes OAuth pedem estes scopes ao iniciar sessao. Todas as aplicacoes OAuth em Administracao > Aplicacoes tem de permitir cada scope marcado, ou o inicio de sessao atraves delas falha com invalid_scope. Actualizar o plugin nunca marca um scope novo: permita-o primeiro nas aplicacoes e depois marque-o aqui. As ligacoes existentes mantem os seus tokens; os utilizadores so voltam a ligar para usar um scope acabado de marcar. Via OAuth, uma ferramenta de escrita cujo scope nao esteja marcado fica escondida, a menos que o token ja o tenha."
+      sign_in_scopes_warning: "Estas aplicacoes OAuth nao permitem todos os scopes pedidos no inicio de sessao. O inicio de sessao atraves delas falha com invalid_scope (nos scopes de escrita, quando o modo apenas-leitura estiver desligado). Permita os scopes em falta em Administracao > Aplicacoes, ou desmarque-os abaixo:"
       allowed_origins: Origens adicionais permitidas
       allowed_origins_hint: "Uma por linha, por exemplo https://app.example.com. A origem deste Redmine e sempre permitida. Pedidos sem cabecalho Origin - o caso habitual para clientes MCP fora do browser - nao sao afectados."
       max_results: Maximo de resultados por chamada

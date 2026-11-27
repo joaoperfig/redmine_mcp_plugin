@@ -64,21 +64,43 @@ module RedmineMcpPlugin
 
     # Scopes a client should request when it first authorizes, advertised in the
     # 401 challenge and in protected-resource metadata. Read-only mode keeps the
-    # read bootstrap set. With writes enabled, each registered write tool's base
-    # permission is added up front, because some MCP clients (claude.ai
-    # connectors) surface an insufficient_scope step-up to the user instead of
-    # re-authorizing, and every reconnect would then request the read set again.
-    # INITIAL_WRITE_EXTRAS join them; `admin` stays step-up only.
+    # read bootstrap set. With writes enabled, the write scopes an administrator
+    # selected (Settings.sign_in_write_scopes) are added up front, because some
+    # MCP clients (claude.ai connectors) surface an insufficient_scope step-up
+    # to the user instead of re-authorizing, and every reconnect would then
+    # request the read set again. The selection is never derived from the
+    # registry: an upgrade that registers a write tool must not add a scope the
+    # OAuth applications may not allow, which would fail every sign-in with
+    # invalid_scope. `admin` stays step-up only.
     def initial_scopes
       return OAUTH_BOOTSTRAP_SCOPES if Settings.read_only?
 
-      write_scopes = Registry.all.select(&:write?).filter_map(&:mcp_permission).map(&:to_sym)
-      write_scopes = (write_scopes + INITIAL_WRITE_EXTRAS).uniq
-      write_scopes.each do |scope|
+      selected = Settings.sign_in_write_scopes
+      OAUTH_BOOTSTRAP_SCOPES + offered_write_scopes.select { |scope| selected.include?(scope) }.map(&:to_s)
+    end
+
+    # Write scopes an administrator may request at sign-in, in registry order:
+    # each registered write tool's base permission plus INITIAL_WRITE_EXTRAS.
+    # A selected scope outside this list is ignored.
+    def offered_write_scopes
+      scopes = Registry.all.select(&:write?).filter_map(&:mcp_permission).map(&:to_sym)
+      scopes = (scopes + INITIAL_WRITE_EXTRAS).uniq
+      scopes.each do |scope|
         # Fail closed, as challenge_scopes does: only declared write-tier scopes.
         raise ArgumentError, "#{scope} is not a declared write scope" unless SCOPE_TIERS.fetch(scope) == :write
       end
-      OAUTH_BOOTSTRAP_SCOPES + write_scopes.map(&:to_s)
+      scopes
+    end
+
+    # Whether a connection holding the +granted+ token scopes can exercise every
+    # one of +permissions+, now or after signing in again. A token never gains
+    # scopes in place; the client must sign in again, and that requests
+    # initial_scopes. nil +granted+ is a mode without token scopes.
+    def obtainable?(granted, permissions)
+      return true if granted.nil?
+
+      missing = permissions.map(&:to_sym) - granted.map(&:to_sym)
+      (missing - initial_scopes.map(&:to_sym)).empty?
     end
 
     def header(permissions:, write:, resource_metadata:)
@@ -104,6 +126,12 @@ module RedmineMcpPlugin
 
         raise ArgumentError, "scope set crosses the #{expected_tier} boundary"
       end
+      # A correlated write scope rides along only when sign-in requests it
+      # too. A client that unions the challenge into its next authorization
+      # would otherwise ask the OAuth application for a scope it may not allow,
+      # and Doorkeeper refuses the whole request with invalid_scope.
+      selected = Settings.sign_in_write_scopes
+      correlated = correlated.select { |scope| SCOPE_TIERS.fetch(scope) == :read || selected.include?(scope) }
       [permission, *correlated]
     end
     private_class_method :challenge_scopes
