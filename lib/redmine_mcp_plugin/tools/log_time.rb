@@ -5,13 +5,19 @@ module RedmineMcpPlugin
     class LogTime < Base
       tool_name 'log_time'
       title 'Log time'
-      description 'Log hours against an existing issue as the authenticated user.'
+      description 'Log hours against an existing issue or a project as the authenticated user.'
       permission :log_time
       write true
       input_schema(
         'type' => 'object',
         'properties' => {
-          'issue_id' => { 'type' => 'integer', 'description' => 'Issue id.' },
+          'project' => { 'type' => %w[string integer],
+                         'description' => 'Project identifier or numeric id. Use either ' \
+                                          'project or issue_id; without issue_id, time is ' \
+                                          'logged against the project rather than an issue.' },
+          'issue_id' => { 'type' => 'integer',
+                          'description' => 'Issue id. Resolves the issue and its project. ' \
+                                           'Use either project or issue_id.' },
           'hours' => { 'type' => 'number', 'exclusiveMinimum' => 0,
                        'description' => 'Hours to log, greater than zero.' },
           'activity_id' => { 'type' => %w[integer string],
@@ -31,30 +37,25 @@ module RedmineMcpPlugin
             }
           }
         },
-        'required' => %w[issue_id hours],
+        'required' => %w[hours],
         'additionalProperties' => false
       )
 
       private
 
       def perform(arguments)
-        # Issue.visible checks roles only; Issue#visible? also applies the
-        # token's scopes, so a token without view_issues cannot log time on an
-        # issue it could not read.
-        issue = Issue.visible(user).find_by(id: arguments['issue_id'].to_i)
-        raise ToolError, "No visible issue with id #{arguments['issue_id'].inspect}" unless issue&.visible?(user)
-
-        authorize!(:log_time, issue.project)
+        project, issue = resolve_context(arguments)
+        authorize!(:log_time, project)
 
         # User and author are set explicitly: TimeEntry otherwise falls back to
         # User.current, which is not guaranteed to be the caller when the tool
         # runs outside a request (tests, jobs).
         entry = TimeEntry.new(
-          project: issue.project,
+          project: project,
           issue: issue,
           author: user,
           user: user,
-          activity_id: resolve_activity(arguments['activity_id'], issue.project),
+          activity_id: resolve_activity(arguments['activity_id'], project),
           hours: arguments['hours'],
           comments: arguments['comments'].presence,
           spent_on: spent_on(arguments)
@@ -63,6 +64,38 @@ module RedmineMcpPlugin
         raise ToolError, "Could not log time: #{entry.errors.full_messages.join('; ')}" unless entry.save
 
         time_entry_payload(entry)
+      end
+
+      # An issue carries its project, so a caller can pass only issue_id. Passing
+      # both checks that they agree instead of silently logging against one.
+      def resolve_context(arguments)
+        issue = visible_issue(arguments['issue_id']) if arguments['issue_id'].present?
+        project = fetch_project(arguments['project']) if arguments['project'].present?
+
+        if project && issue && issue.project_id != project.id
+          raise ToolError, "Issue #{issue.id} is not in project #{project.identifier}"
+        end
+
+        project ||= issue&.project
+        if project.nil?
+          raise ToolError, 'Provide project or issue_id to log time'
+        end
+
+        unless project.module_enabled?(:time_tracking)
+          raise ToolError, "The time tracking module is not enabled for project #{project.identifier}"
+        end
+
+        [project, issue]
+      end
+
+      # Issue#visible? applies the token's scopes on top of the role check in
+      # Issue.visible, so a token without view_issues cannot log time on an issue
+      # it could not read.
+      def visible_issue(identifier)
+        issue = Issue.visible(user).find_by(id: identifier.to_i)
+        raise ToolError, "No visible issue with id #{identifier.inspect}" unless issue&.visible?(user)
+
+        issue
       end
 
       # Both user and author are set explicitly above: TimeEntry falls back to
